@@ -8,6 +8,7 @@
 !.env.example
 backend/.env
 firebase-service-account.json
+backend/firebase-service-account.json.example
 
 # --- Python ---
 __pycache__/

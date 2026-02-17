@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from backend.database import Base
 
@@ -9,15 +9,13 @@ from backend.database import Base
 class Task(Base):
     __tablename__ = "tasks"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    status: Mapped[str] = mapped_column(String(64), default="pending", nullable=False)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    description = Column(String(1024), nullable=True)
+    status = Column(String(64), default="pending", nullable=False)
+    project_id = Column(ForeignKey("projects.id"), nullable=False)
+    user_id = Column(ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="tasks")
     user = relationship("User", back_populates="tasks")

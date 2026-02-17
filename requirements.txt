@@ -1,5 +1,5 @@
 fastapi
-sqlalchemy
+sqlalchemy>=1.4,<2.0
 pydantic
 uvicorn[standard]
 bcrypt
