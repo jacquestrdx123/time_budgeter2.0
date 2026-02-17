@@ -275,7 +275,7 @@ export default {
     }
 
     function blockHeight(hours) {
-      return Math.max(hours * 2 * SLOT_HEIGHT, SLOT_HEIGHT)
+      return Math.max(hours * 2 * SLOT_HEIGHT, SLOT_HEIGHT * 1.6)
     }
 
     // --- Slot from mouse position ---

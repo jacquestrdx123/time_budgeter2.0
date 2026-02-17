@@ -130,6 +130,77 @@ function buildNotificationHtml(title, body) {
 }
 
 // ---------------------------------------------------------------------------
+// Test push – bypasses preferences, returns per-device results
+// ---------------------------------------------------------------------------
+
+export async function testPushToUser(userId) {
+  const user = await db('users').where({ id: userId }).first();
+  if (!user) return { success: false, error: 'User not found', devices: [] };
+
+  const devices = await db('fcm_devices').where({ user_id: userId });
+  if (devices.length === 0) {
+    return {
+      success: false,
+      error: 'No registered devices. Open the app on your phone/browser and allow notifications first.',
+      devices: [],
+    };
+  }
+
+  if (!config.FIREBASE_ENABLED) {
+    return {
+      success: false,
+      error: 'Firebase is disabled (FIREBASE_ENABLED=false in .env)',
+      devices: devices.map((d) => ({ id: d.id, device_name: d.device_name, status: 'skipped' })),
+    };
+  }
+
+  const app = await initFirebase();
+  if (!app) {
+    return {
+      success: false,
+      error: 'Firebase Admin SDK failed to initialise. Check FIREBASE_CREDENTIALS_PATH.',
+      devices: devices.map((d) => ({ id: d.id, device_name: d.device_name, status: 'skipped' })),
+    };
+  }
+
+  const title = 'Test Push Notification';
+  const body = `Hi ${user.name}, this is a test push from TimeBudget! If you see this, push notifications are working.`;
+  const results = [];
+  let anySuccess = false;
+
+  for (const device of devices) {
+    const sent = await sendPushNotification(device.token, title, body, { test: 'true' });
+    results.push({
+      id: device.id,
+      device_name: device.device_name || '(unnamed)',
+      token_prefix: device.token.substring(0, 20) + '…',
+      status: sent ? 'delivered' : 'failed',
+    });
+    if (sent) anySuccess = true;
+  }
+
+  // Also store as an in-app notification
+  const [notifId] = await db('notifications').insert({
+    user_id: userId,
+    title,
+    body,
+    notification_type: 'general',
+    channel: anySuccess ? 'push' : 'none',
+    sent_push: anySuccess,
+    sent_email: false,
+  });
+
+  const notification = await db('notifications').where({ id: notifId }).first();
+
+  return {
+    success: anySuccess,
+    error: anySuccess ? null : 'Push failed for all devices. Tokens may be expired.',
+    devices: results,
+    notification,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // High-level dispatch
 // ---------------------------------------------------------------------------
 

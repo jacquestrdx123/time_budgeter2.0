@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../database.js';
 import { authenticate } from '../auth.js';
-import { getOrCreatePreferences, sendNotification } from '../services/notificationService.js';
+import { getOrCreatePreferences, sendNotification, testPushToUser } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -84,10 +84,21 @@ router.post('/devices', async (req, res) => {
     const { token, device_name } = req.body;
     if (!token) return res.status(422).json({ detail: 'token is required' });
 
-    const existing = await db('fcm_devices')
-      .where({ token, user_id: req.user.id })
-      .first();
-    if (existing) return res.json(existing);
+    // Check if this token already exists (for any user)
+    const existing = await db('fcm_devices').where({ token }).first();
+
+    if (existing) {
+      // Token already registered — reassign to current user if needed
+      if (existing.user_id !== req.user.id || existing.device_name !== (device_name || null)) {
+        await db('fcm_devices').where({ id: existing.id }).update({
+          user_id: req.user.id,
+          device_name: device_name || null,
+        });
+        const updated = await db('fcm_devices').where({ id: existing.id }).first();
+        return res.json(updated);
+      }
+      return res.json(existing);
+    }
 
     const [id] = await db('fcm_devices').insert({
       user_id: req.user.id,
@@ -172,6 +183,18 @@ router.delete('/:notificationId', async (req, res) => {
   } catch (err) {
     console.error('Delete notification error:', err);
     res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+// Send a test push notification to the current user (bypasses preferences)
+router.post('/test-push', async (req, res) => {
+  try {
+    const result = await testPushToUser(req.user.id);
+    const status = result.success ? 200 : 422;
+    res.status(status).json(result);
+  } catch (err) {
+    console.error('Test push error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error', devices: [] });
   }
 });
 
