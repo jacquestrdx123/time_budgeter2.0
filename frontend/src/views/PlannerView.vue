@@ -84,11 +84,7 @@
             <span class="timeline-bar-label">{{ totalPlannedHours.toFixed(1) }} / {{ dayHours }}h</span>
           </div>
 
-          <div
-            class="timeline-grid"
-            @dragover.prevent="onDragOver"
-            @drop.prevent="onDrop"
-          >
+          <div class="timeline-grid">
             <!-- Time ruler + slots -->
             <div class="time-ruler">
               <div
@@ -103,7 +99,14 @@
             </div>
 
             <!-- Blocks overlay -->
-            <div class="timeline-blocks" :style="{ minHeight: timeSlots.length * 48 + 'px' }">
+            <div
+              ref="blocksAreaRef"
+              class="timeline-blocks"
+              :style="{ minHeight: timeSlots.length * 48 + 'px' }"
+              @dragover.prevent="onGridDragOver"
+              @dragleave="onGridDragLeave"
+              @drop.prevent="onGridDrop"
+            >
               <!-- Grid lines -->
               <div
                 v-for="(slot, si) in timeSlots"
@@ -112,27 +115,37 @@
                 :class="{ 'grid-line-hour': slot.isHour }"
                 :style="{ top: si * 48 + 'px' }"
               ></div>
+
+              <!-- Drop indicator -->
+              <div
+                v-if="dropIndicatorSlot >= 0"
+                class="drop-indicator"
+                :style="{ top: dropIndicatorSlot * 48 + 'px' }"
+              >
+                <span class="drop-indicator-label">{{ slotLabel(dropIndicatorSlot) }}</span>
+              </div>
+
               <div v-if="loadingShifts" class="drop-placeholder">
                 <span class="spinner"></span> Loading shifts...
               </div>
-              <div v-else-if="blocks.length === 0" class="drop-placeholder">
+              <div v-else-if="blocks.length === 0 && dropIndicatorSlot < 0" class="drop-placeholder">
                 Drop a project here to start planning
               </div>
 
-              <TransitionGroup name="block-list" tag="div" class="blocks-positioned">
+              <div class="blocks-positioned">
                 <div
                   v-for="(block, idx) in blocks"
                   :key="block.key"
                   class="time-block"
+                  :class="{ 'block-dragging': draggingBlockIdx === idx }"
                   :style="{
                     borderLeftColor: projectColor(block.project.id),
-                    top: blockTop(idx) + 'px',
+                    top: block.startSlot * 48 + 'px',
                     height: blockHeight(block.hours) + 'px',
                   }"
                   draggable="true"
                   @dragstart="onBlockDragStart($event, idx)"
-                  @dragover.prevent="onBlockDragOver($event, idx)"
-                  @drop.prevent="onBlockDrop($event, idx)"
+                  @dragend="onBlockDragEnd"
                 >
                   <div class="block-header">
                     <span class="block-dot" :style="{ background: projectColor(block.project.id) }"></span>
@@ -159,7 +172,7 @@
                     <span class="block-time-range">{{ blockTimeRange(idx) }}</span>
                   </div>
                 </div>
-              </TransitionGroup>
+              </div>
             </div>
           </div>
         </section>
@@ -184,6 +197,7 @@ const PALETTE = [
   '#6366f1', '#14b8a6', '#e11d48', '#84cc16',
 ]
 
+const SLOT_HEIGHT = 48
 let blockIdCounter = 0
 
 export default {
@@ -205,7 +219,12 @@ export default {
     const dayStartHour = computed(() => settingsStore.dayStartHour)
     const dayEndHour = computed(() => settingsStore.dayEndHour)
 
-    const SLOT_HEIGHT = 48
+    const blocksAreaRef = ref(null)
+    const dropIndicatorSlot = ref(-1)
+    const draggingBlockIdx = ref(null)
+    const dragSource = ref(null) // 'palette' or 'block'
+
+    const totalSlots = computed(() => (dayEndHour.value - dayStartHour.value) * 2)
 
     const timeSlots = computed(() => {
       const slots = []
@@ -227,22 +246,28 @@ export default {
       return `${h}:${String(minute).padStart(2, '0')} ${ampm}`
     }
 
-    const totalSlots = computed(() => (dayEndHour.value - dayStartHour.value) * 2)
-
-    function blockTop(idx) {
-      let offsetHours = 0
-      for (let i = 0; i < idx; i++) offsetHours += blocks.value[i].hours
-      return offsetHours * 2 * SLOT_HEIGHT
+    function slotLabel(slotIdx) {
+      const hour = dayStartHour.value + Math.floor(slotIdx / 2)
+      const minute = (slotIdx % 2) * 30
+      return formatHourLabel(hour, minute)
     }
 
     function blockHeight(hours) {
       return Math.max(hours * 2 * SLOT_HEIGHT, SLOT_HEIGHT)
     }
 
+    // --- Slot from mouse position ---
+    function getSlotFromEvent(event) {
+      if (!blocksAreaRef.value) return 0
+      const rect = blocksAreaRef.value.getBoundingClientRect()
+      const y = event.clientY - rect.top
+      const slot = Math.floor(y / SLOT_HEIGHT)
+      return Math.max(0, Math.min(slot, totalSlots.value - 1))
+    }
+
+    // --- Users ---
     const users = ref([])
     const selectedUserId = ref(auth.user?.id || null)
-
-    let draggedBlockIdx = null
 
     onMounted(async () => {
       const [projectRes, userRes] = await Promise.allSettled([
@@ -288,12 +313,23 @@ export default {
         for (const p of projects.value) {
           projectMap[p.id] = p
         }
-        blocks.value = shifts.map(s => ({
-          key: ++blockIdCounter,
-          project: projectMap[s.project_id] || { id: s.project_id, name: `Project #${s.project_id}` },
-          hours: Math.round((new Date(s.end_time) - new Date(s.start_time)) / 3600000 * 10) / 10,
-          shiftId: s.id,
-        }))
+        const base = new Date(selectedDate.value)
+        base.setHours(dayStartHour.value, 0, 0, 0)
+
+        blocks.value = shifts.map(s => {
+          const shiftStart = new Date(s.start_time)
+          const diffMs = shiftStart.getTime() - base.getTime()
+          const diffHours = diffMs / 3600000
+          const startSlot = Math.round(diffHours * 2)
+
+          return {
+            key: ++blockIdCounter,
+            project: projectMap[s.project_id] || { id: s.project_id, name: `Project #${s.project_id}` },
+            hours: Math.round((new Date(s.end_time) - shiftStart) / 3600000 * 10) / 10,
+            startSlot: Math.max(0, startSlot),
+            shiftId: s.id,
+          }
+        })
       } catch {
         toast.error('Failed to load shifts')
       } finally {
@@ -353,45 +389,63 @@ export default {
       return PALETTE[id % PALETTE.length]
     }
 
+    // --- Palette drag ---
     function onDragStart(event, project) {
-      draggedBlockIdx = null
+      dragSource.value = 'palette'
+      draggingBlockIdx.value = null
       event.dataTransfer.setData('application/json', JSON.stringify(project))
       event.dataTransfer.effectAllowed = 'copy'
     }
 
-    function onDragOver() {
-      // allow drop
-    }
-
-    function onDrop(event) {
-      if (draggedBlockIdx !== null) return
-      const raw = event.dataTransfer.getData('application/json')
-      if (!raw) return
-      try {
-        const project = JSON.parse(raw)
-        blocks.value.push({
-          key: ++blockIdCounter,
-          project,
-          hours: 1,
-        })
-      } catch { /* ignore bad data */ }
-    }
-
+    // --- Block drag ---
     function onBlockDragStart(event, idx) {
-      draggedBlockIdx = idx
+      dragSource.value = 'block'
+      draggingBlockIdx.value = idx
       event.dataTransfer.effectAllowed = 'move'
       event.dataTransfer.setData('text/plain', String(idx))
     }
 
-    function onBlockDragOver(event, idx) {
-      if (draggedBlockIdx === null || draggedBlockIdx === idx) return
-      const dragged = blocks.value.splice(draggedBlockIdx, 1)[0]
-      blocks.value.splice(idx, 0, dragged)
-      draggedBlockIdx = idx
+    function onBlockDragEnd() {
+      draggingBlockIdx.value = null
+      dragSource.value = null
+      dropIndicatorSlot.value = -1
     }
 
-    function onBlockDrop() {
-      draggedBlockIdx = null
+    // --- Grid drag events ---
+    function onGridDragOver(event) {
+      event.dataTransfer.dropEffect = dragSource.value === 'block' ? 'move' : 'copy'
+      dropIndicatorSlot.value = getSlotFromEvent(event)
+    }
+
+    function onGridDragLeave() {
+      dropIndicatorSlot.value = -1
+    }
+
+    function onGridDrop(event) {
+      const targetSlot = getSlotFromEvent(event)
+      dropIndicatorSlot.value = -1
+
+      if (dragSource.value === 'block' && draggingBlockIdx.value !== null) {
+        const clampedSlot = Math.max(0, Math.min(targetSlot, totalSlots.value - 1))
+        blocks.value[draggingBlockIdx.value].startSlot = clampedSlot
+        draggingBlockIdx.value = null
+        dragSource.value = null
+        return
+      }
+
+      const raw = event.dataTransfer.getData('application/json')
+      if (!raw) return
+      try {
+        const project = JSON.parse(raw)
+        const clampedSlot = Math.max(0, Math.min(targetSlot, totalSlots.value - 2))
+        blocks.value.push({
+          key: ++blockIdCounter,
+          project,
+          hours: 1,
+          startSlot: clampedSlot,
+        })
+      } catch { /* ignore bad data */ }
+      dragSource.value = null
     }
 
     function removeBlock(idx) {
@@ -411,12 +465,12 @@ export default {
     }
 
     function blockTimeRange(idx) {
+      const block = blocks.value[idx]
       const base = new Date(selectedDate.value)
       base.setHours(dayStartHour.value, 0, 0, 0)
-      let offset = 0
-      for (let i = 0; i < idx; i++) offset += blocks.value[i].hours
-      const start = new Date(base.getTime() + offset * 3600000)
-      const end = new Date(start.getTime() + blocks.value[idx].hours * 3600000)
+      const offsetMs = (block.startSlot * 0.5) * 3600000
+      const start = new Date(base.getTime() + offsetMs)
+      const end = new Date(start.getTime() + block.hours * 3600000)
       return formatTime(start) + ' – ' + formatTime(end)
     }
 
@@ -435,7 +489,6 @@ export default {
       const base = new Date(selectedDate.value)
       base.setHours(dayStartHour.value, 0, 0, 0)
 
-      // Delete existing shifts for this user+date first
       const existingBlocks = blocks.value.filter(b => b.shiftId)
       for (const block of existingBlocks) {
         try {
@@ -443,13 +496,12 @@ export default {
         } catch { /* ignore */ }
       }
 
-      let offset = 0
       let allOk = true
 
       for (const block of blocks.value) {
-        const start = new Date(base.getTime() + offset * 3600000)
+        const offsetMs = (block.startSlot * 0.5) * 3600000
+        const start = new Date(base.getTime() + offsetMs)
         const end = new Date(start.getTime() + block.hours * 3600000)
-        offset += block.hours
 
         try {
           await shiftService.create({
@@ -481,6 +533,9 @@ export default {
       saving,
       dayHours,
       timeSlots,
+      blocksAreaRef,
+      dropIndicatorSlot,
+      draggingBlockIdx,
       users,
       selectedUserId,
       selectedUserName,
@@ -494,17 +549,17 @@ export default {
       remainingHours,
       barPercent,
       projectColor,
+      slotLabel,
       onDragStart,
-      onDragOver,
-      onDrop,
+      onGridDragOver,
+      onGridDragLeave,
+      onGridDrop,
       onBlockDragStart,
-      onBlockDragOver,
-      onBlockDrop,
+      onBlockDragEnd,
       removeBlock,
       adjustHours,
       setHours,
       blockTimeRange,
-      blockTop,
       blockHeight,
       saveAll,
     }
@@ -887,6 +942,34 @@ export default {
   border-top: 1px solid #334155;
 }
 
+/* Drop indicator */
+.drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 2px dashed rgba(59, 130, 246, 0.5);
+  border-radius: 6px;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  transition: top 0.1s ease;
+}
+
+.drop-indicator-label {
+  font-size: 0.7rem;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+/* Dragging state */
+.block-dragging {
+  opacity: 0.35;
+}
+
 .drop-placeholder {
   display: flex;
   align-items: center;
@@ -918,7 +1001,7 @@ export default {
   padding: 0.65rem 0.85rem;
   cursor: grab;
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: top 0.15s ease, height 0.15s ease, border-color 0.2s, box-shadow 0.2s;
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -1043,26 +1126,6 @@ export default {
   font-size: 0.8rem;
   color: #64748b;
   margin-left: auto;
-}
-
-/* Transition group animation */
-.block-list-enter-active,
-.block-list-leave-active {
-  transition: all 0.3s ease;
-}
-
-.block-list-enter-from {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.block-list-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-.block-list-move {
-  transition: transform 0.3s ease;
 }
 
 /* Loading */
