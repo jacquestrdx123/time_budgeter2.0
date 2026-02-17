@@ -15,7 +15,37 @@
         </div>
 
         <form class="shift-form" @submit.prevent="handleSubmit">
-          <div class="form-group">
+          <div class="break-toggle-group">
+            <label class="toggle-label">
+              <input
+                type="checkbox"
+                v-model="form.is_break"
+                class="toggle-checkbox"
+                :disabled="shiftStore.saving"
+              />
+              <span class="toggle-switch"></span>
+              <span class="toggle-text">Work Break</span>
+            </label>
+            <span v-if="form.is_break" class="break-hint">Breaks are not tied to a project (e.g. Lunch, Tea Time)</span>
+          </div>
+
+          <div v-if="form.is_break" class="form-group">
+            <label for="break_type">Break Type</label>
+            <select
+              id="break_type"
+              v-model="form.break_type"
+              :disabled="shiftStore.saving"
+            >
+              <option value="">Select a break type</option>
+              <option value="Lunch">Lunch</option>
+              <option value="Tea Break">Tea Break</option>
+              <option value="Coffee Break">Coffee Break</option>
+              <option value="Rest Break">Rest Break</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div v-if="!form.is_break" class="form-group">
             <label for="project">Project</label>
             <select
               id="project"
@@ -108,9 +138,11 @@ export default {
       const shift = await shiftStore.getShift(Number(route.params.id))
       if (shift) {
         form.value = reactive({
-          project_id: shift.project_id,
+          project_id: shift.project_id || '',
           start_time: toLocalDatetime(shift.start_time),
           end_time: toLocalDatetime(shift.end_time),
+          is_break: shift.is_break === 1 || shift.is_break === true,
+          break_type: shift.break_type || '',
         })
       }
       loading.value = false
@@ -120,8 +152,15 @@ export default {
       const payload = {
         start_time: new Date(form.value.start_time).toISOString(),
         end_time: new Date(form.value.end_time).toISOString(),
-        project_id: Number(form.value.project_id),
         user_id: auth.user?.id,
+        is_break: form.value.is_break,
+      }
+      if (form.value.is_break) {
+        payload.break_type = form.value.break_type || null
+        payload.project_id = null
+      } else {
+        payload.project_id = Number(form.value.project_id)
+        payload.break_type = null
       }
       const updated = await shiftStore.updateShift(Number(route.params.id), payload)
       if (updated) {
@@ -228,6 +267,68 @@ export default {
 
 .form-group select {
   cursor: pointer;
+}
+
+/* Break toggle */
+.break-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #334155;
+  border-radius: 12px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #94a3b8;
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-checkbox:checked + .toggle-switch {
+  background: #f59e0b;
+}
+
+.toggle-checkbox:checked + .toggle-switch::after {
+  transform: translateX(20px);
+  background: white;
+}
+
+.toggle-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.break-hint {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  padding-left: 3.25rem;
 }
 
 .form-row {

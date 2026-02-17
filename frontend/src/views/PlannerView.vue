@@ -57,6 +57,20 @@
             No projects yet.
             <router-link to="/projects/new">Create one</router-link>
           </div>
+
+          <div class="palette-divider"></div>
+          <h3>Breaks</h3>
+          <p class="palette-hint">Drag a break onto the timeline</p>
+          <div
+            v-for="bt in breakTypes"
+            :key="bt.type"
+            class="palette-card palette-card--break"
+            draggable="true"
+            @dragstart="onBreakDragStart($event, bt)"
+          >
+            <span class="palette-break-icon">{{ bt.icon }}</span>
+            <span class="palette-name">{{ bt.type }}</span>
+          </div>
         </aside>
 
         <!-- Timeline -->
@@ -137,9 +151,9 @@
                   v-for="(block, idx) in blocks"
                   :key="block.key"
                   class="time-block"
-                  :class="{ 'block-dragging': draggingBlockIdx === idx }"
+                  :class="{ 'block-dragging': draggingBlockIdx === idx, 'time-block--break': block.isBreak }"
                   :style="{
-                    borderLeftColor: projectColor(block.project.id),
+                    borderLeftColor: block.isBreak ? '#f59e0b' : projectColor(block.project.id),
                     top: block.startSlot * 48 + 'px',
                     height: blockHeight(block.hours) + 'px',
                   }"
@@ -148,8 +162,9 @@
                   @dragend="onBlockDragEnd"
                 >
                   <div class="block-header">
-                    <span class="block-dot" :style="{ background: projectColor(block.project.id) }"></span>
-                    <span class="block-name">{{ block.project.name }}</span>
+                    <span v-if="block.isBreak" class="block-break-icon">{{ breakIcon(block.breakType) }}</span>
+                    <span v-else class="block-dot" :style="{ background: projectColor(block.project.id) }"></span>
+                    <span class="block-name">{{ block.isBreak ? block.breakType : block.project.name }}</span>
                     <button class="block-remove" @click="removeBlock(idx)" title="Remove">&times;</button>
                   </div>
                   <div class="block-controls">
@@ -195,6 +210,13 @@ const PALETTE = [
   '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
   '#10b981', '#ef4444', '#06b6d4', '#f97316',
   '#6366f1', '#14b8a6', '#e11d48', '#84cc16',
+]
+
+const BREAK_TYPES = [
+  { type: 'Lunch', icon: '\u{1F35D}' },
+  { type: 'Tea Break', icon: '\u2615' },
+  { type: 'Coffee Break', icon: '\u2615' },
+  { type: 'Rest Break', icon: '\u{1F4A4}' },
 ]
 
 const SLOT_HEIGHT = 48
@@ -321,10 +343,15 @@ export default {
           const diffMs = shiftStart.getTime() - base.getTime()
           const diffHours = diffMs / 3600000
           const startSlot = Math.round(diffHours * 2)
+          const isBreak = s.is_break === 1 || s.is_break === true
 
           return {
             key: ++blockIdCounter,
-            project: projectMap[s.project_id] || { id: s.project_id, name: `Project #${s.project_id}` },
+            project: isBreak
+              ? { id: null, name: s.break_type || 'Break' }
+              : (projectMap[s.project_id] || { id: s.project_id, name: `Project #${s.project_id}` }),
+            isBreak,
+            breakType: isBreak ? (s.break_type || 'Break') : null,
             hours: Math.round((new Date(s.end_time) - shiftStart) / 3600000 * 10) / 10,
             startSlot: Math.max(0, startSlot),
             shiftId: s.id,
@@ -385,8 +412,15 @@ export default {
       Math.min((totalPlannedHours.value / dayHours.value) * 100, 100)
     )
 
+    const breakTypes = BREAK_TYPES
+
     function projectColor(id) {
       return PALETTE[id % PALETTE.length]
+    }
+
+    function breakIcon(breakType) {
+      const bt = BREAK_TYPES.find(b => b.type === breakType)
+      return bt ? bt.icon : '\u2615'
     }
 
     // --- Palette drag ---
@@ -394,6 +428,13 @@ export default {
       dragSource.value = 'palette'
       draggingBlockIdx.value = null
       event.dataTransfer.setData('application/json', JSON.stringify(project))
+      event.dataTransfer.effectAllowed = 'copy'
+    }
+
+    function onBreakDragStart(event, breakType) {
+      dragSource.value = 'palette'
+      draggingBlockIdx.value = null
+      event.dataTransfer.setData('application/json', JSON.stringify({ _isBreak: true, breakType: breakType.type }))
       event.dataTransfer.effectAllowed = 'copy'
     }
 
@@ -436,14 +477,26 @@ export default {
       const raw = event.dataTransfer.getData('application/json')
       if (!raw) return
       try {
-        const project = JSON.parse(raw)
+        const data = JSON.parse(raw)
         const clampedSlot = Math.max(0, Math.min(targetSlot, totalSlots.value - 2))
-        blocks.value.push({
-          key: ++blockIdCounter,
-          project,
-          hours: 1,
-          startSlot: clampedSlot,
-        })
+        if (data._isBreak) {
+          blocks.value.push({
+            key: ++blockIdCounter,
+            project: { id: null, name: data.breakType },
+            isBreak: true,
+            breakType: data.breakType,
+            hours: 0.5,
+            startSlot: clampedSlot,
+          })
+        } else {
+          blocks.value.push({
+            key: ++blockIdCounter,
+            project: data,
+            isBreak: false,
+            hours: 1,
+            startSlot: clampedSlot,
+          })
+        }
       } catch { /* ignore bad data */ }
       dragSource.value = null
     }
@@ -504,12 +557,19 @@ export default {
         const end = new Date(start.getTime() + block.hours * 3600000)
 
         try {
-          await shiftService.create({
+          const shiftData = {
             start_time: start.toISOString(),
             end_time: end.toISOString(),
             user_id: selectedUserId.value,
-            project_id: block.project.id,
-          })
+          }
+          if (block.isBreak) {
+            shiftData.is_break = true
+            shiftData.break_type = block.breakType || null
+            shiftData.project_id = null
+          } else {
+            shiftData.project_id = block.project.id
+          }
+          await shiftService.create(shiftData)
         } catch {
           allOk = false
         }
@@ -527,6 +587,7 @@ export default {
     return {
       projects,
       blocks,
+      breakTypes,
       loadingProjects,
       loadingUsers,
       loadingShifts,
@@ -549,8 +610,10 @@ export default {
       remainingHours,
       barPercent,
       projectColor,
+      breakIcon,
       slotLabel,
       onDragStart,
+      onBreakDragStart,
       onGridDragOver,
       onGridDragLeave,
       onGridDrop,
@@ -774,6 +837,28 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.palette-divider {
+  height: 1px;
+  background: #334155;
+  margin: 1rem 0;
+}
+
+.palette-card--break {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.palette-card--break:hover {
+  border-color: #f59e0b;
+}
+
+.palette-break-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 10px;
+  text-align: center;
 }
 
 .palette-empty {
@@ -1016,6 +1101,20 @@ export default {
   border-color: #475569;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   z-index: 2;
+}
+
+.time-block--break {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.time-block--break:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.block-break-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .block-header {

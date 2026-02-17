@@ -24,4 +24,19 @@ export const shiftService = {
   async remove(id) {
     await api.delete(`/shifts/${id}`)
   },
+
+  async getActive(userId) {
+    const response = await api.get(`/shifts/active/${userId}`)
+    return response.data
+  },
+
+  async clockIn(data) {
+    const response = await api.post('/shifts/clock-in', data)
+    return response.data
+  },
+
+  async clockOut(data) {
+    const response = await api.post('/shifts/clock-out', data)
+    return response.data
+  },
 }

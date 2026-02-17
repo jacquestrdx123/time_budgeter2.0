@@ -9,8 +9,11 @@ export const useShiftStore = defineStore('shifts', () => {
   const projects = ref([])
   const loading = ref(false)
   const saving = ref(false)
+  const activeShift = ref(null)
+  const clockLoading = ref(false)
 
   const shiftCount = computed(() => shifts.value.length)
+  const isClockedIn = computed(() => !!activeShift.value)
 
   async function fetchShifts() {
     loading.value = true
@@ -90,17 +93,66 @@ export const useShiftStore = defineStore('shifts', () => {
     }
   }
 
+  async function fetchActiveShift(userId) {
+    try {
+      activeShift.value = await shiftService.getActive(userId)
+    } catch (err) {
+      activeShift.value = null
+    }
+  }
+
+  async function clockIn(userId, projectId) {
+    const toast = useToastStore()
+    clockLoading.value = true
+    try {
+      const shift = await shiftService.clockIn({ user_id: userId, project_id: projectId })
+      activeShift.value = shift
+      shifts.value.unshift(shift)
+      toast.success('Clocked in successfully')
+      return shift
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to clock in')
+      return null
+    } finally {
+      clockLoading.value = false
+    }
+  }
+
+  async function clockOut(userId) {
+    const toast = useToastStore()
+    clockLoading.value = true
+    try {
+      const shift = await shiftService.clockOut({ user_id: userId })
+      const idx = shifts.value.findIndex((s) => s.id === shift.id)
+      if (idx !== -1) shifts.value[idx] = shift
+      activeShift.value = null
+      toast.success('Clocked out successfully')
+      return shift
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to clock out')
+      return null
+    } finally {
+      clockLoading.value = false
+    }
+  }
+
   return {
     shifts,
     projects,
     loading,
     saving,
+    activeShift,
+    clockLoading,
     shiftCount,
+    isClockedIn,
     fetchShifts,
     fetchProjects,
     getShift,
     createShift,
     updateShift,
     deleteShift,
+    fetchActiveShift,
+    clockIn,
+    clockOut,
   }
 })

@@ -308,7 +308,7 @@ export default {
     // Day view helpers
     const dayHourLabels = computed(() => {
       const labels = []
-      for (let h = dayStartHour.value; h <= dayEndHour.value; h += 2) labels.push(h)
+      for (let h = dayStartHour.value; h <= dayEndHour.value; h++) labels.push(h)
       return labels
     })
 
@@ -605,15 +605,15 @@ export default {
 .user-col {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  min-width: 160px;
-  padding: 0 0.75rem;
+  gap: 0.5rem;
+  min-width: 130px;
+  padding: 0 0.6rem;
 }
 
 .user-col-header {
-  min-width: 160px;
-  padding: 0 0.75rem;
-  font-size: 0.75rem;
+  min-width: 130px;
+  padding: 0 0.6rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
@@ -624,12 +624,12 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #334155;
   color: #e2e8f0;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -641,7 +641,7 @@ export default {
 }
 
 .user-name {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #f1f5f9;
   white-space: nowrap;
@@ -650,7 +650,7 @@ export default {
 }
 
 .user-hours {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: #64748b;
 }
 
@@ -667,14 +667,14 @@ export default {
 .timeline-header {
   display: flex;
   align-items: center;
-  padding: 0.85rem 0;
+  padding: 0.4rem 0;
   border-bottom: 1px solid #334155;
 }
 
 .user-row {
   display: flex;
   align-items: center;
-  padding: 0.75rem 0;
+  padding: 0.3rem 0;
   border-bottom: 1px solid rgba(51, 65, 85, 0.5);
   transition: background 0.15s;
 }
@@ -690,15 +690,15 @@ export default {
 .hours-track {
   flex: 1;
   position: relative;
-  height: 36px;
-  margin: 0 0.75rem;
+  height: 22px;
+  margin: 0 0.5rem;
 }
 
 .track-bg {
   position: absolute;
   inset: 0;
   background: #0f172a;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #334155;
 }
 
@@ -706,19 +706,19 @@ export default {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   color: #475569;
   pointer-events: none;
 }
 
 .shift-block {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
-  border-radius: 4px;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 4px;
   overflow: hidden;
   cursor: default;
   transition: opacity 0.2s;
@@ -730,7 +730,7 @@ export default {
 }
 
 .shift-block-label {
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 600;
   color: white;
   white-space: nowrap;
@@ -972,10 +972,10 @@ export default {
 /* Responsive */
 @media (max-width: 800px) {
   .user-col {
-    min-width: 120px;
+    min-width: 100px;
   }
   .user-col-header {
-    min-width: 120px;
+    min-width: 100px;
   }
   .week-cell {
     min-width: 75px;

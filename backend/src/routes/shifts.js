@@ -29,6 +29,21 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get the currently active (clocked-in) shift for a user
+router.get('/active/:userId', async (req, res) => {
+  try {
+    const shift = await db('shifts')
+      .where({ user_id: req.params.userId })
+      .whereNull('end_time')
+      .orderBy('start_time', 'desc')
+      .first();
+    res.json(shift || null);
+  } catch (err) {
+    console.error('Get active shift error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
 router.get('/:shiftId', async (req, res) => {
   try {
     const shift = await db('shifts').where({ id: req.params.shiftId }).first();
@@ -42,16 +57,23 @@ router.get('/:shiftId', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { start_time, end_time, user_id, project_id } = req.body;
-    if (!start_time || !end_time || !user_id || !project_id) {
-      return res.status(422).json({ detail: 'start_time, end_time, user_id, and project_id are required' });
+    const { start_time, end_time, user_id, project_id, is_break, break_type } = req.body;
+    const isBreakShift = is_break === true || is_break === 1;
+
+    if (!start_time || !user_id) {
+      return res.status(422).json({ detail: 'start_time and user_id are required' });
+    }
+    if (!isBreakShift && !project_id) {
+      return res.status(422).json({ detail: 'project_id is required for non-break shifts' });
     }
 
     const [id] = await db('shifts').insert({
       start_time,
-      end_time,
+      end_time: end_time || null,
       user_id,
-      project_id,
+      project_id: isBreakShift ? (project_id || null) : project_id,
+      is_break: isBreakShift ? 1 : 0,
+      break_type: isBreakShift ? (break_type || null) : null,
     });
 
     const shift = await db('shifts').where({ id }).first();
@@ -62,14 +84,78 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Clock in: create a new shift with start_time = now and no end_time
+router.post('/clock-in', async (req, res) => {
+  try {
+    const { user_id, project_id } = req.body;
+    if (!user_id || !project_id) {
+      return res.status(422).json({ detail: 'user_id and project_id are required' });
+    }
+
+    // Check for an existing active shift
+    const existing = await db('shifts')
+      .where({ user_id })
+      .whereNull('end_time')
+      .first();
+    if (existing) {
+      return res.status(409).json({ detail: 'Already clocked in. Please clock out first.' });
+    }
+
+    const now = new Date().toISOString();
+    const [id] = await db('shifts').insert({
+      start_time: now,
+      end_time: null,
+      user_id,
+      project_id,
+    });
+
+    const shift = await db('shifts').where({ id }).first();
+    res.json(shift);
+  } catch (err) {
+    console.error('Clock-in error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+// Clock out: set end_time on the active shift
+router.post('/clock-out', async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(422).json({ detail: 'user_id is required' });
+    }
+
+    const active = await db('shifts')
+      .where({ user_id })
+      .whereNull('end_time')
+      .first();
+    if (!active) {
+      return res.status(404).json({ detail: 'No active shift to clock out from.' });
+    }
+
+    const now = new Date().toISOString();
+    await db('shifts').where({ id: active.id }).update({ end_time: now });
+
+    const shift = await db('shifts').where({ id: active.id }).first();
+    res.json(shift);
+  } catch (err) {
+    console.error('Clock-out error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
 router.patch('/:shiftId', async (req, res) => {
   try {
     const shift = await db('shifts').where({ id: req.params.shiftId }).first();
     if (!shift) return res.status(404).json({ detail: 'Shift not found' });
 
     const updates = {};
-    for (const key of ['start_time', 'end_time', 'user_id', 'project_id']) {
+    for (const key of ['start_time', 'end_time', 'user_id', 'project_id', 'is_break', 'break_type']) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (updates.is_break !== undefined) {
+      updates.is_break = (updates.is_break === true || updates.is_break === 1) ? 1 : 0;
+      if (updates.is_break === 0) updates.break_type = null;
     }
 
     if (Object.keys(updates).length > 0) {
