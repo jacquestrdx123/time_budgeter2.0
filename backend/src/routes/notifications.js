@@ -100,14 +100,29 @@ router.post('/devices', async (req, res) => {
       return res.json(existing);
     }
 
-    const [id] = await db('fcm_devices').insert({
-      user_id: req.user.id,
-      token,
-      device_name: device_name || null,
-    });
-
-    const device = await db('fcm_devices').where({ id }).first();
-    res.json(device);
+    try {
+      const [id] = await db('fcm_devices').insert({
+        user_id: req.user.id,
+        token,
+        device_name: device_name || null,
+      });
+      const device = await db('fcm_devices').where({ id }).first();
+      return res.json(device);
+    } catch (insertErr) {
+      // Handle race condition: token was inserted between our check and insert
+      if (insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' || insertErr.message?.includes('UNIQUE constraint')) {
+        const conflict = await db('fcm_devices').where({ token }).first();
+        if (conflict) {
+          await db('fcm_devices').where({ id: conflict.id }).update({
+            user_id: req.user.id,
+            device_name: device_name || null,
+          });
+          const updated = await db('fcm_devices').where({ id: conflict.id }).first();
+          return res.json(updated);
+        }
+      }
+      throw insertErr;
+    }
   } catch (err) {
     console.error('Register device error:', err);
     res.status(500).json({ detail: 'Internal server error' });
