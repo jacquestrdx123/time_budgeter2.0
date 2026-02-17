@@ -38,6 +38,13 @@
 
       <!-- Desktop right -->
       <div class="nav-right">
+        <button class="btn-test-notif" :disabled="testingPush" @click="handleTestPush" title="Send test push notification">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+          {{ testingPush ? 'Sending…' : 'Test Notifications' }}
+        </button>
         <router-link to="/notifications" class="notif-bell" title="Notifications">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -118,6 +125,11 @@
             <span v-if="notifStore.hasUnread" class="drawer-badge">{{ notifStore.unreadCount }}</span>
           </router-link>
 
+          <button class="drawer-link drawer-test-btn" :disabled="testingPush" @click="handleTestPush">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 003-3V9a7 7 0 0114 0v5a3 3 0 003 3zm-8.27 4a2 2 0 01-3.46 0"/></svg>
+            {{ testingPush ? 'Sending…' : 'Test Notifications' }}
+          </button>
+
           <div class="drawer-divider"></div>
 
           <router-link to="/settings" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
@@ -139,6 +151,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import { notificationService } from '@/services/notifications'
 
 export default {
   name: 'NavBar',
@@ -148,11 +161,30 @@ export default {
     const router = useRouter()
     const mobileOpen = ref(false)
     const hasScrolled = ref(false)
+    const testingPush = ref(false)
 
     function handleLogout() {
       mobileOpen.value = false
       auth.logout()
       router.push('/login')
+    }
+
+    async function handleTestPush() {
+      testingPush.value = true
+      try {
+        const result = await notificationService.testPush()
+        if (result.success) {
+          alert('Test notification sent! Check your browser/device.')
+        } else {
+          alert(result.error || 'Test notification failed.')
+        }
+        notifStore.fetchUnreadCount()
+      } catch (err) {
+        const msg = err.response?.data?.error || err.response?.data?.detail || err.message
+        alert('Test notification failed: ' + msg)
+      } finally {
+        testingPush.value = false
+      }
     }
 
     function onScroll() {
@@ -172,7 +204,7 @@ export default {
         .slice(0, 2)
     })
 
-    return { auth, notifStore, mobileOpen, hasScrolled, handleLogout, initials }
+    return { auth, notifStore, mobileOpen, hasScrolled, handleLogout, handleTestPush, testingPush, initials }
   },
 }
 </script>
@@ -257,6 +289,34 @@ export default {
 .nav-link--active {
   color: #f1f5f9;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Test notification button */
+.btn-test-notif {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  color: #60a5fa;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-test-notif:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93bbfc;
+}
+
+.btn-test-notif:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Notification bell */
@@ -535,6 +595,21 @@ export default {
 .drawer-link--active svg {
   opacity: 1;
   color: #3b82f6;
+}
+
+/* Drawer test button */
+.drawer-test-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: #60a5fa;
+}
+
+.drawer-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Drawer divider */

@@ -71,4 +71,10 @@ export const notificationService = {
   async removeDevice(deviceId) {
     await api.delete(`/notifications/devices/${deviceId}`)
   },
+
+  /** Send a test push notification to the current user. */
+  async testPush() {
+    const { data } = await api.post('/notifications/test-push')
+    return data
+  },
 }

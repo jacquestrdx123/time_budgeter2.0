@@ -129,63 +129,6 @@ router.delete('/devices/:deviceId', async (req, res) => {
   }
 });
 
-router.get('/:notificationId', async (req, res) => {
-  try {
-    const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
-      .first();
-    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
-    res.json(notification);
-  } catch (err) {
-    console.error('Get notification error:', err);
-    res.status(500).json({ detail: 'Internal server error' });
-  }
-});
-
-router.patch('/:notificationId/read', async (req, res) => {
-  try {
-    const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
-      .first();
-    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
-
-    await db('notifications').where({ id: req.params.notificationId }).update({ is_read: true });
-
-    const updated = await db('notifications').where({ id: req.params.notificationId }).first();
-    res.json(updated);
-  } catch (err) {
-    console.error('Mark as read error:', err);
-    res.status(500).json({ detail: 'Internal server error' });
-  }
-});
-
-router.post('/mark-all-read', async (req, res) => {
-  try {
-    await db('notifications')
-      .where({ user_id: req.user.id, is_read: false })
-      .update({ is_read: true });
-    res.json({ detail: 'All notifications marked as read' });
-  } catch (err) {
-    console.error('Mark all read error:', err);
-    res.status(500).json({ detail: 'Internal server error' });
-  }
-});
-
-router.delete('/:notificationId', async (req, res) => {
-  try {
-    const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
-      .first();
-    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
-
-    await db('notifications').where({ id: req.params.notificationId }).del();
-    res.status(204).send();
-  } catch (err) {
-    console.error('Delete notification error:', err);
-    res.status(500).json({ detail: 'Internal server error' });
-  }
-});
-
 // Send a test push notification to the current user (bypasses preferences)
 router.post('/test-push', async (req, res) => {
   try {
@@ -218,6 +161,64 @@ router.post('/send', async (req, res) => {
     res.json(notification);
   } catch (err) {
     console.error('Send notification error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+router.post('/mark-all-read', async (req, res) => {
+  try {
+    await db('notifications')
+      .where({ user_id: req.user.id, is_read: false })
+      .update({ is_read: true });
+    res.json({ detail: 'All notifications marked as read' });
+  } catch (err) {
+    console.error('Mark all read error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+// Parameterized routes MUST come last to avoid matching named routes
+router.get('/:notificationId', async (req, res) => {
+  try {
+    const notification = await db('notifications')
+      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .first();
+    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
+    res.json(notification);
+  } catch (err) {
+    console.error('Get notification error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+router.patch('/:notificationId/read', async (req, res) => {
+  try {
+    const notification = await db('notifications')
+      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .first();
+    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
+
+    await db('notifications').where({ id: req.params.notificationId }).update({ is_read: true });
+
+    const updated = await db('notifications').where({ id: req.params.notificationId }).first();
+    res.json(updated);
+  } catch (err) {
+    console.error('Mark as read error:', err);
+    res.status(500).json({ detail: 'Internal server error' });
+  }
+});
+
+router.delete('/:notificationId', async (req, res) => {
+  try {
+    const notification = await db('notifications')
+      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .first();
+    if (!notification) return res.status(404).json({ detail: 'Notification not found' });
+
+    await db('notifications').where({ id: req.params.notificationId }).del();
+    res.status(204).send();
+  } catch (err) {
+    console.error('Delete notification error:', err);
     res.status(500).json({ detail: 'Internal server error' });
   }
 });
