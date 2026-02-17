@@ -85,63 +85,82 @@
           </div>
 
           <div
-            class="timeline-drop"
+            class="timeline-grid"
             @dragover.prevent="onDragOver"
             @drop.prevent="onDrop"
           >
-            <div v-if="loadingShifts" class="drop-placeholder">
-              <span class="spinner"></span> Loading shifts...
-            </div>
-            <div v-else-if="blocks.length === 0" class="drop-placeholder">
-              Drop a project here to start planning
+            <!-- Time ruler + slots -->
+            <div class="time-ruler">
+              <div
+                v-for="slot in timeSlots"
+                :key="slot.label"
+                class="time-slot"
+                :class="{ 'time-slot-hour': slot.isHour }"
+              >
+                <span class="time-slot-label">{{ slot.label }}</span>
+                <div class="time-slot-line"></div>
+              </div>
             </div>
 
-            <TransitionGroup name="block-list" tag="div" class="blocks-container">
+            <!-- Blocks overlay -->
+            <div class="timeline-blocks" :style="{ minHeight: timeSlots.length * 48 + 'px' }">
+              <!-- Grid lines -->
               <div
-                v-for="(block, idx) in blocks"
-                :key="block.key"
-                class="time-block"
-                :style="{ borderLeftColor: projectColor(block.project.id) }"
-                draggable="true"
-                @dragstart="onBlockDragStart($event, idx)"
-                @dragover.prevent="onBlockDragOver($event, idx)"
-                @drop.prevent="onBlockDrop($event, idx)"
-              >
-                <div class="block-header">
-                  <span class="block-dot" :style="{ background: projectColor(block.project.id) }"></span>
-                  <span class="block-name">{{ block.project.name }}</span>
-                  <button class="block-remove" @click="removeBlock(idx)" title="Remove">&times;</button>
-                </div>
-                <div class="block-controls">
-                  <label class="block-label">Hours</label>
-                  <div class="stepper">
-                    <button class="stepper-btn" @click="adjustHours(idx, -0.5)" :disabled="block.hours <= 0.5">
-                      &minus;
-                    </button>
-                    <input
-                      type="number"
-                      class="stepper-input"
-                      :value="block.hours"
-                      min="0.5"
-                      max="24"
-                      step="0.5"
-                      @change="setHours(idx, $event)"
-                    />
-                    <button class="stepper-btn" @click="adjustHours(idx, 0.5)">+</button>
-                  </div>
-                  <span class="block-time-range">{{ blockTimeRange(idx) }}</span>
-                </div>
-                <div class="block-bar">
-                  <div
-                    class="block-bar-fill"
-                    :style="{
-                      width: (block.hours / dayHours * 100) + '%',
-                      background: projectColor(block.project.id),
-                    }"
-                  ></div>
-                </div>
+                v-for="(slot, si) in timeSlots"
+                :key="'line-' + si"
+                class="grid-line"
+                :class="{ 'grid-line-hour': slot.isHour }"
+                :style="{ top: si * 48 + 'px' }"
+              ></div>
+              <div v-if="loadingShifts" class="drop-placeholder">
+                <span class="spinner"></span> Loading shifts...
               </div>
-            </TransitionGroup>
+              <div v-else-if="blocks.length === 0" class="drop-placeholder">
+                Drop a project here to start planning
+              </div>
+
+              <TransitionGroup name="block-list" tag="div" class="blocks-positioned">
+                <div
+                  v-for="(block, idx) in blocks"
+                  :key="block.key"
+                  class="time-block"
+                  :style="{
+                    borderLeftColor: projectColor(block.project.id),
+                    top: blockTop(idx) + 'px',
+                    height: blockHeight(block.hours) + 'px',
+                  }"
+                  draggable="true"
+                  @dragstart="onBlockDragStart($event, idx)"
+                  @dragover.prevent="onBlockDragOver($event, idx)"
+                  @drop.prevent="onBlockDrop($event, idx)"
+                >
+                  <div class="block-header">
+                    <span class="block-dot" :style="{ background: projectColor(block.project.id) }"></span>
+                    <span class="block-name">{{ block.project.name }}</span>
+                    <button class="block-remove" @click="removeBlock(idx)" title="Remove">&times;</button>
+                  </div>
+                  <div class="block-controls">
+                    <label class="block-label">Hours</label>
+                    <div class="stepper">
+                      <button class="stepper-btn" @click="adjustHours(idx, -0.5)" :disabled="block.hours <= 0.5">
+                        &minus;
+                      </button>
+                      <input
+                        type="number"
+                        class="stepper-input"
+                        :value="block.hours"
+                        min="0.5"
+                        max="24"
+                        step="0.5"
+                        @change="setHours(idx, $event)"
+                      />
+                      <button class="stepper-btn" @click="adjustHours(idx, 0.5)">+</button>
+                    </div>
+                    <span class="block-time-range">{{ blockTimeRange(idx) }}</span>
+                  </div>
+                </div>
+              </TransitionGroup>
+            </div>
           </div>
         </section>
       </div>
@@ -184,6 +203,41 @@ export default {
     const selectedDate = ref(stripTime(new Date()))
     const dayHours = computed(() => settingsStore.dayHours)
     const dayStartHour = computed(() => settingsStore.dayStartHour)
+    const dayEndHour = computed(() => settingsStore.dayEndHour)
+
+    const SLOT_HEIGHT = 48
+
+    const timeSlots = computed(() => {
+      const slots = []
+      const start = dayStartHour.value
+      const end = dayEndHour.value
+      for (let h = start; h <= end; h++) {
+        slots.push({ label: formatHourLabel(h, 0), isHour: true })
+        if (h < end) {
+          slots.push({ label: formatHourLabel(h, 30), isHour: false })
+        }
+      }
+      return slots
+    })
+
+    function formatHourLabel(hour, minute) {
+      const h = hour % 12 || 12
+      const ampm = hour < 12 ? 'AM' : 'PM'
+      if (minute === 0) return `${h}:00 ${ampm}`
+      return `${h}:${String(minute).padStart(2, '0')} ${ampm}`
+    }
+
+    const totalSlots = computed(() => (dayEndHour.value - dayStartHour.value) * 2)
+
+    function blockTop(idx) {
+      let offsetHours = 0
+      for (let i = 0; i < idx; i++) offsetHours += blocks.value[i].hours
+      return offsetHours * 2 * SLOT_HEIGHT
+    }
+
+    function blockHeight(hours) {
+      return Math.max(hours * 2 * SLOT_HEIGHT, SLOT_HEIGHT)
+    }
 
     const users = ref([])
     const selectedUserId = ref(auth.user?.id || null)
@@ -426,6 +480,7 @@ export default {
       loadingShifts,
       saving,
       dayHours,
+      timeSlots,
       users,
       selectedUserId,
       selectedUserName,
@@ -449,6 +504,8 @@ export default {
       adjustHours,
       setHours,
       blockTimeRange,
+      blockTop,
+      blockHeight,
       saveAll,
     }
   },
@@ -760,18 +817,74 @@ export default {
   color: #64748b;
 }
 
-/* Drop zone */
-.timeline-drop {
-  min-height: 200px;
+/* Time grid */
+.timeline-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px 1fr;
   background: #1e293b;
-  border: 2px dashed #334155;
+  border: 1px solid #334155;
   border-radius: 12px;
-  padding: 1rem;
-  transition: border-color 0.2s, background 0.2s;
+  overflow: hidden;
 }
 
-.timeline-drop:hover {
-  border-color: #475569;
+/* Time ruler */
+.time-ruler {
+  border-right: 1px solid #334155;
+}
+
+.time-slot {
+  height: 48px;
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+}
+
+.time-slot-label {
+  font-size: 0.7rem;
+  color: #64748b;
+  padding: 4px 8px 0;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.time-slot-hour .time-slot-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.time-slot-line {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 12px;
+  border-top: 1px solid #334155;
+}
+
+.time-slot-hour .time-slot-line {
+  border-top-color: #475569;
+  width: 16px;
+}
+
+/* Blocks area */
+.timeline-blocks {
+  position: relative;
+  min-height: 200px;
+  overflow: visible;
+}
+
+.grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  border-top: 1px dashed #1e293b;
+  pointer-events: none;
+}
+
+.grid-line-hour {
+  border-top: 1px solid #334155;
 }
 
 .drop-placeholder {
@@ -785,21 +898,31 @@ export default {
   font-weight: 500;
 }
 
-/* Block cards */
-.blocks-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+/* Positioned block wrapper */
+.blocks-positioned {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
+/* Block cards */
 .time-block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
   background: #0f172a;
   border: 1px solid #334155;
   border-left: 4px solid;
   border-radius: 10px;
-  padding: 1rem 1.15rem;
+  padding: 0.65rem 0.85rem;
   cursor: grab;
-  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .time-block:active {
@@ -808,14 +931,15 @@ export default {
 
 .time-block:hover {
   border-color: #475569;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  z-index: 2;
 }
 
 .block-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
 }
 
 .block-dot {
@@ -852,7 +976,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0;
 }
 
 .block-label {
@@ -919,21 +1043,6 @@ export default {
   font-size: 0.8rem;
   color: #64748b;
   margin-left: auto;
-}
-
-/* Mini progress per block */
-.block-bar {
-  height: 4px;
-  background: #1e293b;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.block-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
-  opacity: 0.7;
 }
 
 /* Transition group animation */
