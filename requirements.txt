@@ -1,0 +1,9 @@
+fastapi
+sqlalchemy
+pydantic
+uvicorn[standard]
+bcrypt
+python-jose[cryptography]
+firebase-admin
+python-dotenv
+apscheduler
