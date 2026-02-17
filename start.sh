@@ -2,7 +2,6 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PYTHON=python3.11
 BACKEND_PORT=8000
 FRONTEND_PORT=8081
 
@@ -21,10 +20,10 @@ lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null || true
 lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null || true
 sleep 1
 
-# --- Backend (FastAPI + Uvicorn) ---
+# --- Backend (Node.js + Express) ---
 echo "Starting backend on http://localhost:$BACKEND_PORT ..."
-cd "$ROOT_DIR"
-$PYTHON -m uvicorn backend.main:app --reload --port $BACKEND_PORT &
+cd "$ROOT_DIR/backend"
+PORT=$BACKEND_PORT node --watch src/index.js &
 BACKEND_PID=$!
 
 # --- Frontend (Vite) ---
