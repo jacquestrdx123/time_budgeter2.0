@@ -1,0 +1,18 @@
+# TimeBudget — Nginx snippet for Forge
+#
+# Vue Router uses client-side routes (/projects, /shifts, /login, etc.).
+# Nginx must serve index.html for those paths so the Vue app loads and the router can run.
+#
+# Change your existing "location /" from:
+#
+#   location / {
+#       try_files $uri $uri/ =404;
+#   }
+#
+# To this (only the last part changes):
+
+location / {
+    try_files $uri $uri/ /index.html;
+}
+
+# That’s it. /projects, /login, etc. will then load the app; the backend is only for API calls.

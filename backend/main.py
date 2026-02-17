@@ -45,6 +45,8 @@ app.add_middleware(
         "http://localhost:8080",
         "http://localhost:8081",
         "http://localhost:5173",
+        "https://proxy.heartbeatnetworks.com",
+        "https://time_budgeter20-0aprwuxe.on-forge.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
