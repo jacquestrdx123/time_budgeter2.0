@@ -14,7 +14,8 @@ router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
-    let query = db('notifications').where({ user_id: req.user.id });
+    const tenantId = req.user.tenant_id;
+    let query = db('notifications').where({ user_id: req.user.id, tenant_id: tenantId });
     if (req.query.unread_only === 'true') {
       query = query.where({ is_read: false });
     }
@@ -28,8 +29,9 @@ router.get('/', async (req, res) => {
 
 router.get('/unread-count', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const [{ count }] = await db('notifications')
-      .where({ user_id: req.user.id, is_read: false })
+      .where({ user_id: req.user.id, tenant_id: tenantId, is_read: false })
       .count('* as count');
     res.json({ unread_count: count });
   } catch (err) {
@@ -158,16 +160,18 @@ router.post('/test-push', async (req, res) => {
 
 router.post('/send', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const { user_id, title, body, notification_type, data } = req.body;
     if (!user_id || !title || !body) {
       return res.status(422).json({ detail: 'user_id, title, and body are required' });
     }
 
-    const targetUser = await db('users').where({ id: user_id }).first();
+    const targetUser = await db('users').where({ id: user_id, tenant_id: tenantId }).first();
     if (!targetUser) return res.status(404).json({ detail: 'Target user not found' });
 
     const notification = await sendNotification({
       userId: user_id,
+      tenantId: targetUser.tenant_id,
       title,
       body,
       notificationType: notification_type || 'general',
@@ -182,8 +186,9 @@ router.post('/send', async (req, res) => {
 
 router.post('/mark-all-read', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     await db('notifications')
-      .where({ user_id: req.user.id, is_read: false })
+      .where({ user_id: req.user.id, tenant_id: tenantId, is_read: false })
       .update({ is_read: true });
     res.json({ detail: 'All notifications marked as read' });
   } catch (err) {
@@ -195,8 +200,9 @@ router.post('/mark-all-read', async (req, res) => {
 // Parameterized routes MUST come last to avoid matching named routes
 router.get('/:notificationId', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .where({ id: req.params.notificationId, user_id: req.user.id, tenant_id: tenantId })
       .first();
     if (!notification) return res.status(404).json({ detail: 'Notification not found' });
     res.json(notification);
@@ -208,12 +214,13 @@ router.get('/:notificationId', async (req, res) => {
 
 router.patch('/:notificationId/read', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .where({ id: req.params.notificationId, user_id: req.user.id, tenant_id: tenantId })
       .first();
     if (!notification) return res.status(404).json({ detail: 'Notification not found' });
 
-    await db('notifications').where({ id: req.params.notificationId }).update({ is_read: true });
+    await db('notifications').where({ id: req.params.notificationId, tenant_id: tenantId }).update({ is_read: true });
 
     const updated = await db('notifications').where({ id: req.params.notificationId }).first();
     res.json(updated);
@@ -225,12 +232,13 @@ router.patch('/:notificationId/read', async (req, res) => {
 
 router.delete('/:notificationId', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const notification = await db('notifications')
-      .where({ id: req.params.notificationId, user_id: req.user.id })
+      .where({ id: req.params.notificationId, user_id: req.user.id, tenant_id: tenantId })
       .first();
     if (!notification) return res.status(404).json({ detail: 'Notification not found' });
 
-    await db('notifications').where({ id: req.params.notificationId }).del();
+    await db('notifications').where({ id: req.params.notificationId, tenant_id: tenantId }).del();
     res.status(204).send();
   } catch (err) {
     console.error('Delete notification error:', err);

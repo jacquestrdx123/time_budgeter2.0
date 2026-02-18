@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const userName = computed(() => user.value?.name || '')
+  const isAdmin = computed(() => user.value?.role === 'admin')
 
   function setSession(tokenValue, userData) {
     token.value = tokenValue
@@ -84,6 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     userName,
+    isAdmin,
     register,
     login,
     logout,

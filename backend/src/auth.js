@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import config from './config.js';
@@ -5,6 +6,7 @@ import db from './database.js';
 
 const ALGORITHM = 'HS256';
 const ACCESS_TOKEN_EXPIRE_HOURS = 24;
+const RESET_TOKEN_EXPIRY_HOURS = 1;
 
 export function hashPassword(password) {
   return bcrypt.hashSync(password, 10);
@@ -54,4 +56,26 @@ export async function authenticate(req, res, next) {
 export function sanitizeUser(user) {
   const { password_hash, ...safe } = user;
   return safe;
+}
+
+export async function createPasswordResetToken(userId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+  await db('password_reset_tokens').insert({
+    user_id: userId,
+    token,
+    expires_at: expiresAt.toISOString(),
+  });
+  return token;
+}
+
+export async function consumePasswordResetToken(token) {
+  const row = await db('password_reset_tokens').where({ token }).first();
+  if (!row) return null;
+  const expiresAt = new Date(row.expires_at);
+  if (expiresAt <= new Date()) return null;
+  const user = await db('users').where({ id: row.user_id }).first();
+  if (!user) return null;
+  await db('password_reset_tokens').where({ token }).del();
+  return user;
 }

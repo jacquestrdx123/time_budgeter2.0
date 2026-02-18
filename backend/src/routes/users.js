@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import db from '../database.js';
-import { hashPassword, sanitizeUser } from '../auth.js';
+import { authenticate, hashPassword, sanitizeUser } from '../auth.js';
 
 const router = Router();
+router.use(authenticate);
 
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const users = await db('users').select('*');
+    const tenantId = req.user.tenant_id;
+    const users = await db('users').where({ tenant_id: tenantId }).select('*');
     res.json(users.map(sanitizeUser));
   } catch (err) {
     console.error('List users error:', err);
@@ -16,7 +18,8 @@ router.get('/', async (_req, res) => {
 
 router.get('/:userId', async (req, res) => {
   try {
-    const user = await db('users').where({ id: req.params.userId }).first();
+    const tenantId = req.user.tenant_id;
+    const user = await db('users').where({ id: req.params.userId, tenant_id: tenantId }).first();
     if (!user) return res.status(404).json({ detail: 'User not found' });
     res.json(sanitizeUser(user));
   } catch (err) {
@@ -27,12 +30,24 @@ router.get('/:userId', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ detail: 'Only admins can create users' });
+    }
+
+    const tenantId = req.user.tenant_id;
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(422).json({ detail: 'name, email, and password are required' });
     }
 
+    const existing = await db('users').where({ tenant_id: tenantId, email }).first();
+    if (existing) {
+      return res.status(409).json({ detail: 'A user with this email already exists in your team' });
+    }
+
     const [id] = await db('users').insert({
+      tenant_id: tenantId,
+      role: 'member',
       name,
       email,
       password_hash: hashPassword(password),
@@ -48,15 +63,28 @@ router.post('/', async (req, res) => {
 
 router.patch('/:userId', async (req, res) => {
   try {
-    const user = await db('users').where({ id: req.params.userId }).first();
-    if (!user) return res.status(404).json({ detail: 'User not found' });
+    const tenantId = req.user.tenant_id;
+    const targetUser = await db('users').where({ id: req.params.userId, tenant_id: tenantId }).first();
+    if (!targetUser) return res.status(404).json({ detail: 'User not found' });
+
+    const isSelf = String(targetUser.id) === String(req.user.id);
+    const isOtherUser = !isSelf;
+    if (isOtherUser && req.user.role !== 'admin') {
+      return res.status(403).json({ detail: 'Only admins can update other users' });
+    }
 
     const updates = {};
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.email !== undefined) updates.email = req.body.email;
 
     if (Object.keys(updates).length > 0) {
-      await db('users').where({ id: req.params.userId }).update(updates);
+      if (updates.email !== undefined) {
+        const conflict = await db('users').where({ tenant_id: tenantId, email: updates.email }).first();
+        if (conflict && conflict.id !== targetUser.id) {
+          return res.status(409).json({ detail: 'A user with this email already exists in your team' });
+        }
+      }
+      await db('users').where({ id: req.params.userId, tenant_id: tenantId }).update(updates);
     }
 
     const updated = await db('users').where({ id: req.params.userId }).first();
@@ -69,10 +97,24 @@ router.patch('/:userId', async (req, res) => {
 
 router.delete('/:userId', async (req, res) => {
   try {
-    const user = await db('users').where({ id: req.params.userId }).first();
-    if (!user) return res.status(404).json({ detail: 'User not found' });
+    const tenantId = req.user.tenant_id;
+    const targetUser = await db('users').where({ id: req.params.userId, tenant_id: tenantId }).first();
+    if (!targetUser) return res.status(404).json({ detail: 'User not found' });
 
-    await db('users').where({ id: req.params.userId }).del();
+    const isSelf = String(targetUser.id) === String(req.user.id);
+    const isOtherUser = !isSelf;
+    if (isOtherUser && req.user.role !== 'admin') {
+      return res.status(403).json({ detail: 'Only admins can delete other users' });
+    }
+
+    if (targetUser.role === 'admin') {
+      const adminCount = await db('users').where({ tenant_id: tenantId, role: 'admin' }).count('* as count').first();
+      if (adminCount && Number(adminCount.count) <= 1) {
+        return res.status(400).json({ detail: 'Cannot delete the last admin. Assign another admin first.' });
+      }
+    }
+
+    await db('users').where({ id: req.params.userId, tenant_id: tenantId }).del();
     res.status(204).send();
   } catch (err) {
     console.error('Delete user error:', err);

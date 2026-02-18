@@ -23,6 +23,7 @@ function envBool(key, fallback = false) {
 const config = {
   SECRET_KEY: process.env.SECRET_KEY || 'timebudget-dev-secret-change-in-production',
   DATABASE_URL: process.env.DATABASE_URL || 'sqlite:///./timebudget.db',
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:8081',
 
   FIREBASE_CREDENTIALS_PATH: process.env.FIREBASE_CREDENTIALS_PATH || 'firebase-service-account.json',
   FIREBASE_ENABLED: envBool('FIREBASE_ENABLED'),

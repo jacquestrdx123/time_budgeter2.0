@@ -10,4 +10,18 @@ export const userService = {
     const response = await api.get(`/users/${id}`)
     return response.data
   },
+
+  async create(data) {
+    const response = await api.post('/users/', data)
+    return response.data
+  },
+
+  async update(id, data) {
+    const response = await api.patch(`/users/${id}`, data)
+    return response.data
+  },
+
+  async delete(id) {
+    await api.delete(`/users/${id}`)
+  },
 }

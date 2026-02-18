@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import db from '../database.js';
+import { authenticate } from '../auth.js';
 
 const router = Router();
+router.use(authenticate);
 
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const tasks = await db('tasks').select('*');
+    const tenantId = req.user.tenant_id;
+    const tasks = await db('tasks').where({ tenant_id: tenantId }).select('*');
     res.json(tasks);
   } catch (err) {
     console.error('List tasks error:', err);
@@ -15,7 +18,8 @@ router.get('/', async (_req, res) => {
 
 router.get('/:taskId', async (req, res) => {
   try {
-    const task = await db('tasks').where({ id: req.params.taskId }).first();
+    const tenantId = req.user.tenant_id;
+    const task = await db('tasks').where({ id: req.params.taskId, tenant_id: tenantId }).first();
     if (!task) return res.status(404).json({ detail: 'Task not found' });
     res.json(task);
   } catch (err) {
@@ -26,12 +30,16 @@ router.get('/:taskId', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const { title, description, status, project_id, user_id } = req.body;
     if (!title || !project_id) {
       return res.status(422).json({ detail: 'title and project_id are required' });
     }
+    const project = await db('projects').where({ id: project_id, tenant_id: tenantId }).first();
+    if (!project) return res.status(404).json({ detail: 'Project not found' });
 
     const [id] = await db('tasks').insert({
+      tenant_id: tenantId,
       title,
       description: description || null,
       status: status || 'pending',
@@ -49,7 +57,8 @@ router.post('/', async (req, res) => {
 
 router.patch('/:taskId', async (req, res) => {
   try {
-    const task = await db('tasks').where({ id: req.params.taskId }).first();
+    const tenantId = req.user.tenant_id;
+    const task = await db('tasks').where({ id: req.params.taskId, tenant_id: tenantId }).first();
     if (!task) return res.status(404).json({ detail: 'Task not found' });
 
     const updates = {};
@@ -58,7 +67,7 @@ router.patch('/:taskId', async (req, res) => {
     }
 
     if (Object.keys(updates).length > 0) {
-      await db('tasks').where({ id: req.params.taskId }).update(updates);
+      await db('tasks').where({ id: req.params.taskId, tenant_id: tenantId }).update(updates);
     }
 
     const updated = await db('tasks').where({ id: req.params.taskId }).first();
@@ -71,10 +80,11 @@ router.patch('/:taskId', async (req, res) => {
 
 router.delete('/:taskId', async (req, res) => {
   try {
-    const task = await db('tasks').where({ id: req.params.taskId }).first();
+    const tenantId = req.user.tenant_id;
+    const task = await db('tasks').where({ id: req.params.taskId, tenant_id: tenantId }).first();
     if (!task) return res.status(404).json({ detail: 'Task not found' });
 
-    await db('tasks').where({ id: req.params.taskId }).del();
+    await db('tasks').where({ id: req.params.taskId, tenant_id: tenantId }).del();
     res.status(204).send();
   } catch (err) {
     console.error('Delete task error:', err);

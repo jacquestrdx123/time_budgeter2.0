@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import db from '../database.js';
+import { authenticate } from '../auth.js';
 
 const router = Router();
+router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
-    let query = db('shifts');
+    const tenantId = req.user.tenant_id;
+    let query = db('shifts').where({ tenant_id: tenantId });
 
     if (req.query.user_id) {
       query = query.where('user_id', req.query.user_id);
@@ -29,11 +32,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get the currently active (clocked-in) shift for a user
 router.get('/active/:userId', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const shift = await db('shifts')
-      .where({ user_id: req.params.userId })
+      .where({ user_id: req.params.userId, tenant_id: tenantId })
       .whereNull('end_time')
       .orderBy('start_time', 'desc')
       .first();
@@ -46,7 +49,8 @@ router.get('/active/:userId', async (req, res) => {
 
 router.get('/:shiftId', async (req, res) => {
   try {
-    const shift = await db('shifts').where({ id: req.params.shiftId }).first();
+    const tenantId = req.user.tenant_id;
+    const shift = await db('shifts').where({ id: req.params.shiftId, tenant_id: tenantId }).first();
     if (!shift) return res.status(404).json({ detail: 'Shift not found' });
     res.json(shift);
   } catch (err) {
@@ -57,6 +61,7 @@ router.get('/:shiftId', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const { start_time, end_time, user_id, project_id, is_break, break_type } = req.body;
     const isBreakShift = is_break === true || is_break === 1;
 
@@ -66,8 +71,15 @@ router.post('/', async (req, res) => {
     if (!isBreakShift && !project_id) {
       return res.status(422).json({ detail: 'project_id is required for non-break shifts' });
     }
+    const user = await db('users').where({ id: user_id, tenant_id: tenantId }).first();
+    if (!user) return res.status(404).json({ detail: 'User not found' });
+    if (!isBreakShift) {
+      const project = await db('projects').where({ id: project_id, tenant_id: tenantId }).first();
+      if (!project) return res.status(404).json({ detail: 'Project not found' });
+    }
 
     const [id] = await db('shifts').insert({
+      tenant_id: tenantId,
       start_time,
       end_time: end_time || null,
       user_id,
@@ -84,17 +96,20 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Clock in: create a new shift with start_time = now and no end_time
 router.post('/clock-in', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const { user_id, project_id } = req.body;
     if (!user_id || !project_id) {
       return res.status(422).json({ detail: 'user_id and project_id are required' });
     }
+    const user = await db('users').where({ id: user_id, tenant_id: tenantId }).first();
+    if (!user) return res.status(404).json({ detail: 'User not found' });
+    const project = await db('projects').where({ id: project_id, tenant_id: tenantId }).first();
+    if (!project) return res.status(404).json({ detail: 'Project not found' });
 
-    // Check for an existing active shift
     const existing = await db('shifts')
-      .where({ user_id })
+      .where({ user_id, tenant_id: tenantId })
       .whereNull('end_time')
       .first();
     if (existing) {
@@ -103,6 +118,7 @@ router.post('/clock-in', async (req, res) => {
 
     const now = new Date().toISOString();
     const [id] = await db('shifts').insert({
+      tenant_id: tenantId,
       start_time: now,
       end_time: null,
       user_id,
@@ -117,16 +133,16 @@ router.post('/clock-in', async (req, res) => {
   }
 });
 
-// Clock out: set end_time on the active shift
 router.post('/clock-out', async (req, res) => {
   try {
+    const tenantId = req.user.tenant_id;
     const { user_id } = req.body;
     if (!user_id) {
       return res.status(422).json({ detail: 'user_id is required' });
     }
 
     const active = await db('shifts')
-      .where({ user_id })
+      .where({ user_id, tenant_id: tenantId })
       .whereNull('end_time')
       .first();
     if (!active) {
@@ -146,7 +162,8 @@ router.post('/clock-out', async (req, res) => {
 
 router.patch('/:shiftId', async (req, res) => {
   try {
-    const shift = await db('shifts').where({ id: req.params.shiftId }).first();
+    const tenantId = req.user.tenant_id;
+    const shift = await db('shifts').where({ id: req.params.shiftId, tenant_id: tenantId }).first();
     if (!shift) return res.status(404).json({ detail: 'Shift not found' });
 
     const updates = {};
@@ -159,7 +176,7 @@ router.patch('/:shiftId', async (req, res) => {
     }
 
     if (Object.keys(updates).length > 0) {
-      await db('shifts').where({ id: req.params.shiftId }).update(updates);
+      await db('shifts').where({ id: req.params.shiftId, tenant_id: tenantId }).update(updates);
     }
 
     const updated = await db('shifts').where({ id: req.params.shiftId }).first();
@@ -172,10 +189,11 @@ router.patch('/:shiftId', async (req, res) => {
 
 router.delete('/:shiftId', async (req, res) => {
   try {
-    const shift = await db('shifts').where({ id: req.params.shiftId }).first();
+    const tenantId = req.user.tenant_id;
+    const shift = await db('shifts').where({ id: req.params.shiftId, tenant_id: tenantId }).first();
     if (!shift) return res.status(404).json({ detail: 'Shift not found' });
 
-    await db('shifts').where({ id: req.params.shiftId }).del();
+    await db('shifts').where({ id: req.params.shiftId, tenant_id: tenantId }).del();
     res.status(204).send();
   } catch (err) {
     console.error('Delete shift error:', err);

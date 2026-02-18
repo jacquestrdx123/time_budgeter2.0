@@ -6,6 +6,7 @@
         <div>
           <h1>Team Schedule</h1>
           <p>See everyone's planned shifts at a glance.</p>
+          <router-link v-if="auth.isAdmin" to="/team/members" class="team-members-link">Manage team members</router-link>
         </div>
         <div class="header-controls">
           <div class="view-toggle">
@@ -182,6 +183,7 @@ import NavBar from '@/components/NavBar.vue'
 import { userService } from '@/services/users'
 import { shiftService } from '@/services/shifts'
 import projectService from '@/services/projects'
+import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 
@@ -195,6 +197,7 @@ export default {
   name: 'TeamView',
   components: { NavBar },
   setup() {
+    const auth = useAuthStore()
     const toast = useToastStore()
     const settingsStore = useSettingsStore()
 
@@ -424,6 +427,7 @@ export default {
     }
 
     return {
+      auth,
       viewMode,
       selectedDate,
       users,
@@ -489,6 +493,19 @@ export default {
 .page-header p {
   color: #94a3b8;
   margin: 0;
+}
+
+.team-members-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.team-members-link:hover {
+  color: #93c5fd;
+  text-decoration: underline;
 }
 
 /* Header controls */

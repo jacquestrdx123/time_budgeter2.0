@@ -147,6 +147,34 @@ function buildNotificationHtml(title, body) {
     </html>`;
 }
 
+function buildPasswordResetHtml(resetLink) {
+  return `
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #4f46e5; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="margin: 0;">TimeBudget</h2>
+        </div>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h3 style="color: #1f2937;">Reset your password</h3>
+            <p style="color: #4b5563; line-height: 1.6;">Click the link below to set a new password. This link expires in 1 hour.</p>
+            <p style="margin: 24px 0;">
+                <a href="${resetLink}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset password</a>
+            </p>
+            <p style="color: #6b7280; font-size: 14px;">If you didn't request this, you can ignore this email.</p>
+        </div>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">
+            TimeBudget – Shift and time management made simple.
+        </p>
+    </body>
+    </html>`;
+}
+
+export async function sendPasswordResetEmail(toEmail, resetLink) {
+  if (!config.EMAIL_ENABLED) return false;
+  const html = buildPasswordResetHtml(resetLink);
+  return sendEmail(toEmail, 'Reset your TimeBudget password', html);
+}
+
 // ---------------------------------------------------------------------------
 // Test push – bypasses preferences, returns per-device results
 // ---------------------------------------------------------------------------
@@ -197,8 +225,9 @@ export async function testPushToUser(userId) {
     if (sent) anySuccess = true;
   }
 
-  // Also store as an in-app notification
+  // Also store as an in-app notification (tenant_id from user)
   const [notifId] = await db('notifications').insert({
+    tenant_id: user.tenant_id,
     user_id: userId,
     title,
     body,
@@ -243,11 +272,16 @@ function isTypeEnabled(prefs, notificationType) {
 
 export async function sendNotification({
   userId,
+  tenantId,
   title,
   body,
   notificationType = 'general',
   data = null,
 }) {
+  const user = await db('users').where({ id: userId }).first();
+  if (!user) return null;
+  const tid = tenantId ?? user.tenant_id;
+
   const prefs = await getOrCreatePreferences(userId);
 
   let sentPush = false;
@@ -258,11 +292,8 @@ export async function sendNotification({
   }
 
   if (prefs.email_enabled && isTypeEnabled(prefs, notificationType)) {
-    const user = await db('users').where({ id: userId }).first();
-    if (user) {
-      const html = buildNotificationHtml(title, body);
-      sentEmail = await sendEmail(user.email, title, html);
-    }
+    const html = buildNotificationHtml(title, body);
+    sentEmail = await sendEmail(user.email, title, html);
   }
 
   let channel = 'none';
@@ -271,6 +302,7 @@ export async function sendNotification({
   else if (sentEmail) channel = 'email';
 
   const [id] = await db('notifications').insert({
+    tenant_id: tid,
     user_id: userId,
     title,
     body,

@@ -31,6 +31,7 @@ async function checkUpcomingShifts() {
       try {
         await sendNotification({
           userId: shift.user_id,
+          tenantId: shift.tenant_id,
           title,
           body,
           notificationType: 'shift_reminder',

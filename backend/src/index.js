@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { initDatabase } from './database.js';
-import { seedDefaults } from './routes/settings.js';
+import { seedDefaults } from './seedSettings.js';
 import { startScheduler, stopScheduler } from './services/scheduler.js';
 
 import authRouter from './routes/auth.js';
