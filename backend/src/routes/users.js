@@ -76,8 +76,20 @@ router.patch('/:userId', async (req, res) => {
     const updates = {};
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.email !== undefined) updates.email = req.body.email;
+    if (req.body.role !== undefined && req.user.role === 'admin') {
+      if (['admin', 'member'].includes(req.body.role)) updates.role = req.body.role;
+    }
 
     if (Object.keys(updates).length > 0) {
+      if (updates.role === 'member' && targetUser.role === 'admin') {
+        if (isSelf) {
+          return res.status(400).json({ detail: 'You cannot demote yourself.' });
+        }
+        const adminCount = await db('users').where({ tenant_id: tenantId, role: 'admin' }).count('* as count').first();
+        if (adminCount && Number(adminCount.count) <= 1) {
+          return res.status(400).json({ detail: 'Cannot demote the last admin. Assign another admin first.' });
+        }
+      }
       if (updates.email !== undefined) {
         const conflict = await db('users').where({ tenant_id: tenantId, email: updates.email }).first();
         if (conflict && conflict.id !== targetUser.id) {

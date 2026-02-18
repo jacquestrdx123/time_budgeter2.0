@@ -3,8 +3,8 @@
     <NavBar />
     <main class="page-content">
       <div class="page-header">
-        <router-link to="/projects" class="back-link">&larr; Back to Projects</router-link>
-        <h1>{{ isEdit ? 'Edit Project' : 'New Project' }}</h1>
+        <router-link to="/projects" class="back-link">&larr; Back to {{ settingsStore.projectDescriptionPlural }}</router-link>
+        <h1>{{ isEdit ? 'Edit ' + settingsStore.projectDescription : 'New ' + settingsStore.projectDescription }}</h1>
       </div>
 
       <div v-if="loadingProject" class="loading-state">
@@ -14,7 +14,7 @@
 
       <form v-else class="project-form" @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="name">Project Name</label>
+          <label for="name">{{ settingsStore.projectDescription }} Name</label>
           <input
             id="name"
             v-model="form.name"
@@ -41,7 +41,7 @@
           <router-link to="/projects" class="btn-secondary">Cancel</router-link>
           <button type="submit" class="btn-primary" :disabled="saving || !form.name.trim()">
             <span v-if="saving" class="spinner-sm"></span>
-            {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Project') }}
+            {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create ' + settingsStore.projectDescription) }}
           </button>
         </div>
       </form>
@@ -54,6 +54,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import projectsService from '@/services/projects'
+import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 
 export default {
@@ -63,6 +64,7 @@ export default {
     const router = useRouter()
     const route = useRoute()
     const toast = useToastStore()
+    const settingsStore = useSettingsStore()
 
     const isEdit = computed(() => !!route.params.id)
     const loadingProject = ref(false)
@@ -115,7 +117,7 @@ export default {
 
     onMounted(loadProject)
 
-    return { isEdit, loadingProject, saving, form, handleSubmit }
+    return { isEdit, loadingProject, saving, form, handleSubmit, settingsStore }
   },
 }
 </script>

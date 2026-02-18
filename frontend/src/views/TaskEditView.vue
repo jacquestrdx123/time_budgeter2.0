@@ -40,14 +40,14 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="project">Project</label>
+              <label for="project">{{ settingsStore.projectDescription }}</label>
               <select
                 id="project"
                 v-model="form.project_id"
                 required
                 :disabled="taskStore.saving"
               >
-                <option value="" disabled>Select a project</option>
+                <option value="" disabled>Select a {{ settingsStore.projectDescription.toLowerCase() }}</option>
                 <option
                   v-for="project in taskStore.projects"
                   :key="project.id"
@@ -96,6 +96,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
+import { useSettingsStore } from '@/stores/settings'
 import NavBar from '@/components/NavBar.vue'
 
 export default {
@@ -103,6 +104,7 @@ export default {
   components: { NavBar },
   setup() {
     const taskStore = useTaskStore()
+    const settingsStore = useSettingsStore()
     const route = useRoute()
     const router = useRouter()
 
@@ -136,7 +138,7 @@ export default {
       }
     }
 
-    return { taskStore, loading, form, handleSubmit }
+    return { taskStore, settingsStore, loading, form, handleSubmit }
   },
 }
 </script>

@@ -161,7 +161,7 @@
 
       <!-- Legend -->
       <div v-if="!loading && projectList.length > 0" class="legend">
-        <span class="legend-title">Projects</span>
+        <span class="legend-title">{{ settingsStore.projectDescriptionPlural }}</span>
         <div class="legend-items">
           <span
             v-for="p in projectList"

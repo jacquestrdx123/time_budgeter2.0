@@ -5,7 +5,7 @@
       <div class="page-header">
         <div>
           <h1>Shifts</h1>
-          <p>Track your working shifts across projects.</p>
+          <p>Track your working shifts across {{ settingsStore.projectDescriptionPlural.toLowerCase() }}.</p>
         </div>
         <router-link to="/shifts/create" class="btn-primary">+ New Shift</router-link>
       </div>
@@ -38,12 +38,12 @@
               <span class="clock-idle-icon">&#9201;</span>
               <div>
                 <div class="clock-idle-title">Ready to start?</div>
-                <div class="clock-idle-sub">Select a project and clock in to begin tracking.</div>
+                <div class="clock-idle-sub">Select a {{ settingsStore.projectDescription.toLowerCase() }} and clock in to begin tracking.</div>
               </div>
             </div>
             <div class="clock-idle-actions">
               <select v-model="clockInProjectId" class="clock-select">
-                <option value="" disabled>Select project...</option>
+                <option value="" disabled>Select {{ settingsStore.projectDescription.toLowerCase() }}...</option>
                 <option v-for="p in shiftStore.projects" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
               <button
@@ -75,7 +75,7 @@
         <table class="shift-table">
           <thead>
             <tr>
-              <th>Project / Type</th>
+              <th>{{ settingsStore.projectDescription }} / Type</th>
               <th>Start</th>
               <th>End</th>
               <th>Duration</th>
@@ -144,6 +144,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useShiftStore } from '@/stores/shifts'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import NavBar from '@/components/NavBar.vue'
 
 export default {
@@ -152,6 +153,7 @@ export default {
   setup() {
     const shiftStore = useShiftStore()
     const authStore = useAuthStore()
+    const settingsStore = useSettingsStore()
     const showDeleteModal = ref(false)
     const deleteTarget = ref(null)
     const clockInProjectId = ref('')
@@ -251,6 +253,7 @@ export default {
 
     return {
       shiftStore,
+      settingsStore,
       showDeleteModal,
       deleteTarget,
       clockInProjectId,

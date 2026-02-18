@@ -9,7 +9,7 @@
 
       <template v-else-if="project">
         <div class="page-header">
-          <router-link to="/projects" class="back-link">&larr; Back to Projects</router-link>
+          <router-link to="/projects" class="back-link">&larr; Back to {{ settingsStore.projectDescriptionPlural }}</router-link>
           <div class="header-row">
             <div>
               <h1>{{ project.name }}</h1>
@@ -131,9 +131,9 @@
       </template>
 
       <div v-else class="empty-state">
-        <h3>Project not found</h3>
-        <p>The project you're looking for doesn't exist or has been deleted.</p>
-        <router-link to="/projects" class="btn-primary">Back to Projects</router-link>
+        <h3>{{ settingsStore.projectDescription }} not found</h3>
+        <p>The {{ settingsStore.projectDescription.toLowerCase() }} you're looking for doesn't exist or has been deleted.</p>
+        <router-link to="/projects" class="btn-primary">Back to {{ settingsStore.projectDescriptionPlural }}</router-link>
       </div>
     </main>
   </div>
@@ -144,6 +144,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import projectsService from '@/services/projects'
+import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 
 export default {
@@ -152,6 +153,7 @@ export default {
   setup() {
     const route = useRoute()
     const toast = useToastStore()
+    const settingsStore = useSettingsStore()
 
     const project = ref(null)
     const tasks = ref([])
@@ -252,6 +254,7 @@ export default {
       formatDate,
       formatDateTime,
       formatDuration,
+      settingsStore,
     }
   },
 }

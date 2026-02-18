@@ -95,8 +95,8 @@
 
           <div class="pref-row">
             <div class="pref-info">
-              <span class="pref-label">Project updates</span>
-              <span class="pref-desc">When a project you belong to is modified.</span>
+              <span class="pref-label">{{ settingsStore.projectDescription }} updates</span>
+              <span class="pref-desc">When a {{ settingsStore.projectDescription.toLowerCase() }} you belong to is modified.</span>
             </div>
             <label class="toggle">
               <input type="checkbox" v-model="prefs.project_updated" @change="save" />
@@ -139,6 +139,7 @@
 import { ref, computed, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import { useNotificationStore } from '@/stores/notifications'
+import { useSettingsStore } from '@/stores/settings'
 import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useToastStore } from '@/stores/toast'
 
@@ -147,6 +148,7 @@ export default {
   components: { NavBar },
   setup() {
     const notifStore = useNotificationStore()
+    const settingsStore = useSettingsStore()
     const toast = useToastStore()
     const { permissionGranted, pushSupported, initPush } = usePushNotifications()
     const prefs = ref(null)
@@ -188,6 +190,7 @@ export default {
 
     return {
       prefs,
+      settingsStore,
       save,
       requestPush,
       permissionGranted,

@@ -5,7 +5,7 @@
       <div class="page-header">
         <div>
           <h1>Day Planner</h1>
-          <p>Drag projects onto the timeline to plan your day.</p>
+          <p>Drag {{ settingsStore.projectDescriptionPlural.toLowerCase() }} onto the timeline to plan your day.</p>
         </div>
         <div class="header-controls">
           <div class="user-selector">
@@ -35,14 +35,14 @@
 
       <div v-if="loadingProjects" class="loading-state">
         <span class="spinner"></span>
-        Loading projects...
+        Loading {{ settingsStore.projectDescriptionPlural.toLowerCase() }}...
       </div>
 
       <div v-else class="planner-layout">
         <!-- Project palette -->
         <aside class="palette">
-          <h3>Projects</h3>
-          <p class="palette-hint">Drag a project onto the timeline</p>
+          <h3>{{ settingsStore.projectDescriptionPlural }}</h3>
+          <p class="palette-hint">Drag a {{ settingsStore.projectDescription.toLowerCase() }} onto the timeline</p>
           <div
             v-for="project in projects"
             :key="project.id"
@@ -54,7 +54,7 @@
             <span class="palette-name">{{ project.name }}</span>
           </div>
           <div v-if="projects.length === 0" class="palette-empty">
-            No projects yet.
+            No {{ settingsStore.projectDescriptionPlural.toLowerCase() }} yet.
             <router-link to="/projects/new">Create one</router-link>
           </div>
 

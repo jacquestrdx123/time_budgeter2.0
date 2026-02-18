@@ -27,7 +27,7 @@
           <thead>
             <tr>
               <th>Title</th>
-              <th>Project</th>
+              <th>{{ settingsStore.projectDescription }}</th>
               <th>Status</th>
               <th>Created</th>
               <th class="th-actions">Actions</th>
@@ -84,6 +84,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
+import { useSettingsStore } from '@/stores/settings'
 import NavBar from '@/components/NavBar.vue'
 
 export default {
@@ -91,6 +92,7 @@ export default {
   components: { NavBar },
   setup() {
     const taskStore = useTaskStore()
+    const settingsStore = useSettingsStore()
     const showDeleteModal = ref(false)
     const deleteTarget = ref(null)
 
@@ -126,6 +128,7 @@ export default {
 
     return {
       taskStore,
+      settingsStore,
       showDeleteModal,
       deleteTarget,
       projectName,

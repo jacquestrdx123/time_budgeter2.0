@@ -103,6 +103,14 @@
             <label>Email</label>
             <input v-model="editForm.email" type="email" class="form-input" placeholder="email@example.com" />
           </div>
+          <div v-if="auth.isAdmin" class="form-group">
+            <label>Role</label>
+            <select v-model="editForm.role" class="form-input">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+            <span v-if="editForm.id === auth.user?.id" class="form-hint">You cannot demote yourself while editing.</span>
+          </div>
           <div class="modal-actions">
             <button class="btn-secondary" @click="showEditModal = false">Cancel</button>
             <button
@@ -157,7 +165,7 @@ export default {
     const userToDelete = ref(null)
 
     const addForm = ref({ name: '', email: '', password: '' })
-    const editForm = ref({ id: null, name: '', email: '' })
+    const editForm = ref({ id: null, name: '', email: '', role: 'member' })
 
     function initials(name) {
       if (!name) return ''
@@ -188,7 +196,7 @@ export default {
     }
 
     function openEditModal(u) {
-      editForm.value = { id: u.id, name: u.name, email: u.email }
+      editForm.value = { id: u.id, name: u.name, email: u.email, role: u.role || 'member' }
       showEditModal.value = true
     }
 
@@ -226,10 +234,9 @@ export default {
     async function submitEdit() {
       editSaving.value = true
       try {
-        await userService.update(editForm.value.id, {
-          name: editForm.value.name,
-          email: editForm.value.email,
-        })
+        const payload = { name: editForm.value.name, email: editForm.value.email }
+        if (auth.isAdmin && editForm.value.role) payload.role = editForm.value.role
+        await userService.update(editForm.value.id, payload)
         toast.success('User updated')
         showEditModal.value = false
         await loadUsers()
@@ -538,6 +545,17 @@ export default {
 .form-input:focus {
   outline: none;
   border-color: #3b82f6;
+}
+
+.form-group select.form-input {
+  cursor: pointer;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .modal-actions {

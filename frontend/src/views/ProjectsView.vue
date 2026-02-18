@@ -4,12 +4,12 @@
     <main class="page-content">
       <div class="page-header">
         <div>
-          <h1>Projects</h1>
-          <p class="page-subtitle">Manage your projects and track progress.</p>
+          <h1>{{ settingsStore.projectDescriptionPlural }}</h1>
+          <p class="page-subtitle">Manage your {{ settingsStore.projectDescriptionPlural.toLowerCase() }} and track progress.</p>
         </div>
         <router-link to="/projects/new" class="btn-primary">
           <span class="btn-icon">+</span>
-          New Project
+          New {{ settingsStore.projectDescription }}
         </router-link>
       </div>
 
@@ -20,9 +20,9 @@
 
       <div v-else-if="projects.length === 0" class="empty-state">
         <div class="empty-icon">&#128193;</div>
-        <h3>No projects yet</h3>
-        <p>Create your first project to start tracking time.</p>
-        <router-link to="/projects/new" class="btn-primary">Create Project</router-link>
+        <h3>No {{ settingsStore.projectDescriptionPlural.toLowerCase() }} yet</h3>
+        <p>Create your first {{ settingsStore.projectDescription.toLowerCase() }} to start tracking time.</p>
+        <router-link to="/projects/new" class="btn-primary">Create {{ settingsStore.projectDescription }}</router-link>
       </div>
 
       <div v-else class="projects-grid">
@@ -63,7 +63,7 @@
       <Teleport to="body">
         <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
           <div class="modal">
-            <h3>Delete Project</h3>
+            <h3>Delete {{ settingsStore.projectDescription }}</h3>
             <p>
               Are you sure you want to delete
               <strong>{{ deleteTarget.name }}</strong>? This action cannot be undone.
@@ -87,6 +87,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
+import { useSettingsStore } from '@/stores/settings'
 import projectsService from '@/services/projects'
 import { useToastStore } from '@/stores/toast'
 
@@ -95,6 +96,7 @@ export default {
   components: { NavBar },
   setup() {
     const toast = useToastStore()
+    const settingsStore = useSettingsStore()
     const projects = ref([])
     const loading = ref(true)
     const deleteTarget = ref(null)
@@ -142,7 +144,7 @@ export default {
 
     onMounted(fetchProjects)
 
-    return { projects, loading, deleteTarget, deleting, confirmDelete, handleDelete, formatDate }
+    return { settingsStore, projects, loading, deleteTarget, deleting, confirmDelete, handleDelete, formatDate }
   },
 }
 </script>

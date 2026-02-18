@@ -2,8 +2,9 @@
  * Centralized nav menu config. Used by NavBar for desktop dropdowns and mobile accordions.
  * - Single item: { label, to }
  * - Group: { label, items: [{ label, to, badge?: 'notifStore.unreadCount' }] }
+ * The Projects item label is overridden dynamically from project_description setting.
  */
-export const navGroups = [
+export const baseNavGroups = [
   { label: 'Dashboard', to: '/' },
   {
     label: 'Work',
@@ -17,7 +18,8 @@ export const navGroups = [
   {
     label: 'People & Time',
     items: [
-      { label: 'Team', to: '/team' },
+      { label: 'Team Schedule', to: '/team' },
+      { label: 'Team Members', to: '/team/members' },
       { label: 'Shifts', to: '/shifts' },
       { label: 'Reminders', to: '/reminders' },
     ],

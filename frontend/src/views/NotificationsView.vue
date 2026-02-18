@@ -118,12 +118,14 @@
 import { ref, computed, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import { useNotificationStore } from '@/stores/notifications'
+import { useSettingsStore } from '@/stores/settings'
 
 export default {
   name: 'NotificationsView',
   components: { NavBar },
   setup() {
     const notifStore = useNotificationStore()
+    const settingsStore = useSettingsStore()
     const filter = ref('all')
 
     onMounted(() => {
@@ -158,7 +160,7 @@ export default {
         shift_reminder: 'Shift Reminder',
         task_assigned: 'Task Assigned',
         task_updated: 'Task Updated',
-        project_updated: 'Project Updated',
+        project_updated: `${settingsStore.projectDescription} Updated`,
         general: 'General',
       }
       return map[type] || type
@@ -176,7 +178,7 @@ export default {
       return d.toLocaleDateString()
     }
 
-    return { notifStore, filter, filtered, handleClick, typeClass, formatType, formatAgo }
+    return { notifStore, settingsStore, filter, filtered, handleClick, typeClass, formatType, formatAgo }
   },
 }
 </script>

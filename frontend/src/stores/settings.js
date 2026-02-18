@@ -37,6 +37,17 @@ export const useSettingsStore = defineStore('settings', () => {
   const companyName = computed(() => getValue('company_name', 'Our Team'))
   const weekStart = computed(() => getValue('week_start', 'monday'))
 
+  /** Singular label for Project (e.g. Project, Client, Engagement) */
+  const projectDescription = computed(() => getValue('project_description', 'Project'))
+  /** Plural form for menus/dashboards (adds 's') */
+  const projectDescriptionPlural = computed(() => {
+    const s = projectDescription.value
+    if (!s) return 'Projects'
+    if (s.endsWith('s') || s.endsWith('x') || s.endsWith('z') || s.endsWith('ch') || s.endsWith('sh')) return s + 'es'
+    if (s.endsWith('y') && s.length > 1 && !/^[aeiou]/i.test(s.slice(-2, -1))) return s.slice(0, -1) + 'ies'
+    return s + 's'
+  })
+
   async function updateSetting(key, value) {
     const updated = await settingsService.update(key, value)
     const idx = settings.value.findIndex(s => s.key === key)
@@ -60,6 +71,8 @@ export const useSettingsStore = defineStore('settings', () => {
     dayHours,
     companyName,
     weekStart,
+    projectDescription,
+    projectDescriptionPlural,
     updateSetting,
   }
 })

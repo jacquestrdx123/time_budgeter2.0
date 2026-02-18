@@ -198,8 +198,9 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import { useSettingsStore } from '@/stores/settings'
 import { notificationService } from '@/services/notifications'
-import { navGroups } from '@/config/navMenu'
+import { baseNavGroups } from '@/config/navMenu'
 import NavIcon from './NavIcon.vue'
 
 export default {
@@ -208,6 +209,7 @@ export default {
   setup() {
     const auth = useAuthStore()
     const notifStore = useNotificationStore()
+    const settingsStore = useSettingsStore()
     const router = useRouter()
     const route = useRoute()
     const mobileOpen = ref(false)
@@ -228,8 +230,22 @@ export default {
       expandedDrawer.value = expandedDrawer.value === label ? null : label
     }
 
+    const projectLabel = computed(() => settingsStore.projectDescriptionPlural)
+    const navGroups = computed(() => {
+      const label = projectLabel.value
+      return baseNavGroups.map((g) => {
+        if (g.to) return g
+        return {
+          ...g,
+          items: (g.items || []).map((item) =>
+            item.to === '/projects' ? { ...item, label } : item
+          ),
+        }
+      })
+    })
+
     function getGroupForPath(path) {
-      for (const g of navGroups) {
+      for (const g of navGroups.value) {
         if (g.to && g.to === path) return g.label
         if (g.items?.some((i) => i.to === path || (i.to !== '/' && path.startsWith(i.to))))
           return g.label
@@ -240,7 +256,7 @@ export default {
     watch(mobileOpen, (open) => {
       if (open) {
         const groupLabel = getGroupForPath(route.path)
-        expandedDrawer.value = groupLabel || navGroups.find((g) => !g.to)?.label || null
+        expandedDrawer.value = groupLabel || navGroups.value.find((g) => !g.to)?.label || null
       }
     })
 

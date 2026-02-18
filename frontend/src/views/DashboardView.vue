@@ -39,7 +39,7 @@
         <router-link to="/projects" class="stat-card stat-card-link">
           <div class="stat-icon">&#128193;</div>
           <div class="stat-info">
-            <span class="stat-label">Projects</span>
+            <span class="stat-label">{{ settingsStore.projectDescriptionPlural }}</span>
             <span class="stat-value">{{ projectCount }}</span>
           </div>
         </router-link>
@@ -73,6 +73,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import { useTaskStore } from '@/stores/tasks'
 import { usePersonalTodoStore } from '@/stores/personalTodos'
 import { useShiftStore } from '@/stores/shifts'
@@ -85,6 +86,7 @@ export default {
   components: { NavBar },
   setup() {
     const auth = useAuthStore()
+    const settingsStore = useSettingsStore()
     const taskStore = useTaskStore()
     const personalTodoStore = usePersonalTodoStore()
     const shiftStore = useShiftStore()
@@ -112,7 +114,7 @@ export default {
       })
     }
 
-    return { auth, taskStore, personalTodoStore, shiftStore, reminderStore, projectCount, formatDate }
+    return { auth, settingsStore, taskStore, personalTodoStore, shiftStore, reminderStore, projectCount, formatDate }
   },
 }
 </script>
