@@ -116,10 +116,9 @@ router.post('/clock-in', async (req, res) => {
       return res.status(409).json({ detail: 'Already clocked in. Please clock out first.' });
     }
 
-    const now = new Date().toISOString();
     const [id] = await db('shifts').insert({
       tenant_id: tenantId,
-      start_time: now,
+      start_time: db.raw('NOW()'),
       end_time: null,
       user_id,
       project_id,
@@ -149,8 +148,7 @@ router.post('/clock-out', async (req, res) => {
       return res.status(404).json({ detail: 'No active shift to clock out from.' });
     }
 
-    const now = new Date().toISOString();
-    await db('shifts').where({ id: active.id }).update({ end_time: now });
+    await db('shifts').where({ id: active.id }).update({ end_time: db.raw('NOW()') });
 
     const shift = await db('shifts').where({ id: active.id }).first();
     res.json(shift);

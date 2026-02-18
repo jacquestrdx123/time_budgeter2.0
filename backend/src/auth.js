@@ -58,13 +58,17 @@ export function sanitizeUser(user) {
   return safe;
 }
 
+function toMySQLDateTime(date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export async function createPasswordResetToken(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
   await db('password_reset_tokens').insert({
     user_id: userId,
     token,
-    expires_at: expiresAt.toISOString(),
+    expires_at: toMySQLDateTime(expiresAt),
   });
   return token;
 }

@@ -37,15 +37,26 @@ router.put('/:key', async (req, res) => {
     const setting = await db('system_settings').where({ tenant_id: tenantId, key: req.params.key }).first();
     if (!setting) return res.status(404).json({ detail: 'Setting not found' });
 
+    const value = req.body?.value;
+    if (value === undefined) {
+      return res.status(422).json({ detail: 'value is required' });
+    }
+
     await db('system_settings')
       .where({ tenant_id: tenantId, key: req.params.key })
-      .update({ value: req.body.value, updated_at: new Date().toISOString() });
+      .update({
+        value: String(value),
+        updated_at: db.raw('NOW()'),
+      });
 
     const updated = await db('system_settings').where({ tenant_id: tenantId, key: req.params.key }).first();
     res.json(updated);
   } catch (err) {
     console.error('Update setting error:', err);
-    res.status(500).json({ detail: 'Internal server error' });
+    const detail = process.env.NODE_ENV === 'development'
+      ? (err.message || 'Internal server error')
+      : 'Internal server error';
+    res.status(500).json({ detail });
   }
 });
 
