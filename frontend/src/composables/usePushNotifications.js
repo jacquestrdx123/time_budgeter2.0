@@ -66,6 +66,12 @@ export function usePushNotifications() {
         console.info('[Push] Foreground message:', payload)
         notifStore.handleIncomingPush(payload)
         toast.info(payload.notification?.title || 'New notification')
+
+        try {
+          const audio = new Audio('/notification-sound.mp3')
+          audio.volume = 0.5
+          audio.play().catch(() => {})
+        } catch {}
       })
     } catch (err) {
       console.error('[Push] Init failed:', err)

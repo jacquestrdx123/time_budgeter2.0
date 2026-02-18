@@ -44,10 +44,28 @@ async function sendPushNotification(token, title, body, data = null) {
 
     const message = {
       notification: { title, body },
-      data: data
-        ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
-        : {},
+      data: {
+        ...(data
+          ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
+          : {}),
+        url: data?.url || '/notifications',
+      },
       token,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: 'timebudget_alerts',
+          defaultVibrateTimings: true,
+        },
+      },
+      webpush: {
+        notification: {
+          vibrate: [200, 100, 200, 100, 300],
+          requireInteraction: true,
+        },
+        headers: { Urgency: 'high' },
+      },
     };
 
     await messaging.send(message);
