@@ -11,29 +11,65 @@
         <span class="brand-text">TimeBudget</span>
       </router-link>
 
-      <!-- Desktop links -->
-      <div class="nav-links">
-        <router-link to="/" class="nav-link" exact-active-class="nav-link--active">
-          Dashboard
-        </router-link>
-        <router-link to="/projects" class="nav-link" active-class="nav-link--active">
-          Projects
-        </router-link>
-        <router-link to="/tasks" class="nav-link" active-class="nav-link--active">
-          Tasks
-        </router-link>
-        <router-link to="/planner" class="nav-link" active-class="nav-link--active">
-          Planner
-        </router-link>
-        <router-link to="/team" class="nav-link" active-class="nav-link--active">
-          Team
-        </router-link>
-        <router-link to="/shifts" class="nav-link" active-class="nav-link--active">
-          Shifts
-        </router-link>
-        <router-link to="/settings" class="nav-link" active-class="nav-link--active">
-          Settings
-        </router-link>
+      <!-- Desktop links (dropdowns) -->
+      <div class="nav-links" ref="navLinksRef">
+        <template v-for="(group, gIdx) in navGroups" :key="gIdx">
+          <!-- Single link -->
+          <router-link
+            v-if="group.to"
+            :to="group.to"
+            class="nav-link"
+            :exact-active-class="group.to === '/' ? 'nav-link--active' : undefined"
+            :active-class="group.to !== '/' ? 'nav-link--active' : undefined"
+          >
+            {{ group.label }}
+          </router-link>
+          <!-- Dropdown group -->
+          <div
+            v-else
+            class="nav-dropdown"
+            :class="{ open: openDropdown === group.label }"
+            @mouseenter="openDropdown = group.label"
+            @mouseleave="openDropdown = null"
+          >
+            <button
+              type="button"
+              class="nav-link nav-dropdown-trigger"
+              :class="{ 'nav-link--active': isGroupActive(group) }"
+              :aria-expanded="openDropdown === group.label"
+              aria-haspopup="true"
+              @click="openDropdown = openDropdown === group.label ? null : group.label"
+            >
+              {{ group.label }}
+              <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <Transition name="dropdown">
+              <div
+                v-show="openDropdown === group.label"
+                class="nav-dropdown-panel"
+                role="menu"
+              >
+                <router-link
+                  v-for="(item, iIdx) in group.items"
+                  :key="iIdx"
+                  :to="item.to"
+                  class="nav-dropdown-item"
+                  active-class="nav-dropdown-item--active"
+                  role="menuitem"
+                  @click="openDropdown = null"
+                >
+                  <NavIcon :to="item.to" class="nav-dropdown-icon" />
+                  {{ item.label }}
+                  <span v-if="item.badge === 'notif' && notifStore.hasUnread" class="nav-dropdown-badge">
+                    {{ notifStore.unreadCount > 9 ? '9+' : notifStore.unreadCount }}
+                  </span>
+                </router-link>
+              </div>
+            </Transition>
+          </div>
+        </template>
       </div>
 
       <!-- Desktop right -->
@@ -94,36 +130,52 @@
         </div>
 
         <nav class="drawer-links">
-          <router-link to="/" class="drawer-link" exact-active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            Dashboard
-          </router-link>
-          <router-link to="/projects" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-            Projects
-          </router-link>
-          <router-link to="/tasks" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            Tasks
-          </router-link>
-          <router-link to="/planner" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Planner
-          </router-link>
-          <router-link to="/team" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-            Team
-          </router-link>
-          <router-link to="/shifts" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Shifts
-          </router-link>
-
-          <router-link to="/notifications" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-            Notifications
-            <span v-if="notifStore.hasUnread" class="drawer-badge">{{ notifStore.unreadCount }}</span>
-          </router-link>
+          <template v-for="(group, gIdx) in navGroups" :key="gIdx">
+            <!-- Single link -->
+            <router-link
+              v-if="group.to"
+              :to="group.to"
+              class="drawer-link"
+              :exact-active-class="group.to === '/' ? 'drawer-link--active' : undefined"
+              :active-class="group.to !== '/' ? 'drawer-link--active' : undefined"
+              @click="mobileOpen = false"
+            >
+              <NavIcon :to="group.to" />
+              {{ group.label }}
+            </router-link>
+            <!-- Accordion group -->
+            <div v-else class="drawer-group" :class="{ expanded: expandedDrawer === group.label }">
+              <button
+                type="button"
+                class="drawer-group-trigger"
+                :aria-expanded="expandedDrawer === group.label"
+                @click="toggleDrawerGroup(group.label)"
+              >
+                {{ group.label }}
+                <svg class="drawer-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              <Transition name="drawer-accordion">
+                <div v-show="expandedDrawer === group.label" class="drawer-group-panel">
+                  <router-link
+                    v-for="(item, iIdx) in group.items"
+                    :key="iIdx"
+                    :to="item.to"
+                    class="drawer-link drawer-link--nested"
+                    active-class="drawer-link--active"
+                    @click="mobileOpen = false"
+                  >
+                    <NavIcon :to="item.to" />
+                    {{ item.label }}
+                    <span v-if="item.badge === 'notif' && notifStore.hasUnread" class="drawer-badge">
+                      {{ notifStore.unreadCount }}
+                    </span>
+                  </router-link>
+                </div>
+              </Transition>
+            </div>
+          </template>
 
           <button class="drawer-link drawer-test-btn" :disabled="testingPush" @click="handleTestPush">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 003-3V9a7 7 0 0114 0v5a3 3 0 003 3zm-8.27 4a2 2 0 01-3.46 0"/></svg>
@@ -131,11 +183,6 @@
           </button>
 
           <div class="drawer-divider"></div>
-
-          <router-link to="/settings" class="drawer-link" active-class="drawer-link--active" @click="mobileOpen = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z"/></svg>
-            Settings
-          </router-link>
         </nav>
 
         <div class="drawer-footer">
@@ -147,21 +194,55 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
 import { notificationService } from '@/services/notifications'
+import { navGroups } from '@/config/navMenu'
+import NavIcon from './NavIcon.vue'
 
 export default {
   name: 'NavBar',
+  components: { NavIcon },
   setup() {
     const auth = useAuthStore()
     const notifStore = useNotificationStore()
     const router = useRouter()
+    const route = useRoute()
     const mobileOpen = ref(false)
     const hasScrolled = ref(false)
     const testingPush = ref(false)
+    const openDropdown = ref(null)
+    const expandedDrawer = ref(null)
+    const navLinksRef = ref(null)
+
+    function isGroupActive(group) {
+      if (group.to) return false
+      return (group.items || []).some(
+        (item) => route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to))
+      )
+    }
+
+    function toggleDrawerGroup(label) {
+      expandedDrawer.value = expandedDrawer.value === label ? null : label
+    }
+
+    function getGroupForPath(path) {
+      for (const g of navGroups) {
+        if (g.to && g.to === path) return g.label
+        if (g.items?.some((i) => i.to === path || (i.to !== '/' && path.startsWith(i.to))))
+          return g.label
+      }
+      return null
+    }
+
+    watch(mobileOpen, (open) => {
+      if (open) {
+        const groupLabel = getGroupForPath(route.path)
+        expandedDrawer.value = groupLabel || navGroups.find((g) => !g.to)?.label || null
+      }
+    })
 
     function handleLogout() {
       mobileOpen.value = false
@@ -191,20 +272,47 @@ export default {
       hasScrolled.value = window.scrollY > 8
     }
 
-    onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
-    onUnmounted(() => window.removeEventListener('scroll', onScroll))
+    function onDocumentClick(e) {
+      if (navLinksRef.value && !navLinksRef.value.contains(e.target)) {
+        openDropdown.value = null
+      }
+    }
+
+    onMounted(() => {
+      window.addEventListener('scroll', onScroll, { passive: true })
+      document.addEventListener('click', onDocumentClick)
+    })
+    onUnmounted(() => {
+      window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('click', onDocumentClick)
+    })
 
     const initials = computed(() => {
       const name = auth.userName || ''
       return name
         .split(' ')
-        .map(w => w[0])
+        .map((w) => w[0])
         .join('')
         .toUpperCase()
         .slice(0, 2)
     })
 
-    return { auth, notifStore, mobileOpen, hasScrolled, handleLogout, handleTestPush, testingPush, initials }
+    return {
+      auth,
+      notifStore,
+      navGroups,
+      mobileOpen,
+      hasScrolled,
+      openDropdown,
+      expandedDrawer,
+      navLinksRef,
+      isGroupActive,
+      toggleDrawerGroup,
+      handleLogout,
+      handleTestPush,
+      testingPush,
+      initials,
+    }
   },
 }
 </script>
@@ -289,6 +397,100 @@ export default {
 .nav-link--active {
   color: #f1f5f9;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Desktop dropdown */
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.nav-chevron {
+  opacity: 0.8;
+  transition: transform 0.2s;
+}
+
+.nav-dropdown.open .nav-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-panel {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.2rem;
+  min-width: 160px;
+  padding: 0.35rem;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.9);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.nav-dropdown-item:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-dropdown-item--active {
+  color: #f1f5f9;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.nav-dropdown-icon {
+  flex-shrink: 0;
+}
+
+.nav-dropdown-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
 }
 
 /* Test notification button */
@@ -595,6 +797,70 @@ export default {
 .drawer-link--active svg {
   opacity: 1;
   color: #3b82f6;
+}
+
+/* Drawer accordion groups */
+.drawer-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.drawer-group-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.9);
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.drawer-group-trigger:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.drawer-chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.2s;
+}
+
+.drawer-group.expanded .drawer-chevron {
+  transform: rotate(180deg);
+}
+
+.drawer-group-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(148, 163, 184, 0.15);
+  margin-left: 0.85rem;
+}
+
+.drawer-link--nested {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.drawer-accordion-enter-active,
+.drawer-accordion-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.drawer-accordion-enter-from,
+.drawer-accordion-leave-to {
+  opacity: 0;
 }
 
 /* Drawer test button */

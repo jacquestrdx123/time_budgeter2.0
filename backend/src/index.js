@@ -9,6 +9,8 @@ import usersRouter from './routes/users.js';
 import projectsRouter from './routes/projects.js';
 import tasksRouter from './routes/tasks.js';
 import shiftsRouter from './routes/shifts.js';
+import remindersRouter from './routes/reminders.js';
+import personalTodosRouter from './routes/personalTodos.js';
 import notificationsRouter from './routes/notifications.js';
 import settingsRouter from './routes/settings.js';
 
@@ -42,6 +44,8 @@ app.use('/users', usersRouter);
 app.use('/projects', projectsRouter);
 app.use('/tasks', tasksRouter);
 app.use('/shifts', shiftsRouter);
+app.use('/reminders', remindersRouter);
+app.use('/personal-todos', personalTodosRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/settings', settingsRouter);
 

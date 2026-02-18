@@ -63,6 +63,24 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/personal-todos',
+    name: 'PersonalTodos',
+    component: () => import('@/views/PersonalTodosView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/personal-todos/create',
+    name: 'PersonalTodoCreate',
+    component: () => import('@/views/PersonalTodoCreateView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/personal-todos/:id/edit',
+    name: 'PersonalTodoEdit',
+    component: () => import('@/views/PersonalTodoEditView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/planner',
     name: 'Planner',
     component: () => import('@/views/PlannerView.vue'),
@@ -96,6 +114,24 @@ const routes = [
     path: '/shifts/:id/edit',
     name: 'ShiftEdit',
     component: () => import('@/views/ShiftEditView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/reminders',
+    name: 'Reminders',
+    component: () => import('@/views/RemindersView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/reminders/create',
+    name: 'ReminderCreate',
+    component: () => import('@/views/ReminderCreateView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/reminders/:id/edit',
+    name: 'ReminderEdit',
+    component: () => import('@/views/ReminderEditView.vue'),
     meta: { requiresAuth: true },
   },
   {

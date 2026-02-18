@@ -53,6 +53,48 @@ async function checkUpcomingShifts() {
   }
 }
 
+async function checkReminders() {
+  try {
+    const now = new Date();
+    const due = await db('reminders')
+      .where('trigger_at', '<=', now.toISOString())
+      .where('sent', false);
+
+    if (due.length === 0) return;
+
+    for (const reminder of due) {
+      const title = reminder.title;
+      const body = reminder.description || 'This is your scheduled reminder.';
+
+      try {
+        await sendNotification({
+          userId: reminder.user_id,
+          tenantId: reminder.tenant_id,
+          title,
+          body,
+          notificationType: 'custom_reminder',
+          data: {
+            reminder_id: reminder.id,
+            trigger_at: reminder.trigger_at,
+          },
+        });
+
+        await db('reminders').where({ id: reminder.id }).update({ sent: true });
+        console.log(`Reminder sent for ${reminder.id} (user ${reminder.user_id}, "${reminder.title}")`);
+      } catch (err) {
+        console.error(`Failed to send reminder ${reminder.id}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('Reminder check failed:', err.message);
+  }
+}
+
+function schedulerTick() {
+  checkUpcomingShifts();
+  checkReminders();
+}
+
 export function startScheduler() {
   if (!config.SCHEDULER_ENABLED) {
     console.log('Scheduler disabled via SCHEDULER_ENABLED=false');
@@ -62,10 +104,10 @@ export function startScheduler() {
   const intervalSec = config.SCHEDULER_CHECK_INTERVAL_SECONDS;
 
   // node-cron uses cron expressions; for second-level intervals we use setInterval
-  cronTask = setInterval(checkUpcomingShifts, intervalSec * 1000);
+  cronTask = setInterval(schedulerTick, intervalSec * 1000);
 
   // Run once immediately
-  checkUpcomingShifts();
+  schedulerTick();
 
   console.log(
     `Shift reminder scheduler started (checking every ${intervalSec}s, reminder window ${config.SHIFT_REMINDER_MINUTES} min)`

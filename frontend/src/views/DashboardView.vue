@@ -22,6 +22,20 @@
             <span class="stat-value">{{ taskStore.taskCount }}</span>
           </div>
         </router-link>
+        <router-link to="/personal-todos" class="stat-card stat-card-link">
+          <div class="stat-icon">&#128221;</div>
+          <div class="stat-info">
+            <span class="stat-label">Personal TODO</span>
+            <span class="stat-value">{{ personalTodoStore.todoCount }}</span>
+          </div>
+        </router-link>
+        <router-link to="/reminders" class="stat-card stat-card-link">
+          <div class="stat-icon">&#9200;</div>
+          <div class="stat-info">
+            <span class="stat-label">Reminders</span>
+            <span class="stat-value">{{ reminderStore.upcomingCount }}</span>
+          </div>
+        </router-link>
         <router-link to="/projects" class="stat-card stat-card-link">
           <div class="stat-icon">&#128193;</div>
           <div class="stat-info">
@@ -60,7 +74,9 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/tasks'
+import { usePersonalTodoStore } from '@/stores/personalTodos'
 import { useShiftStore } from '@/stores/shifts'
+import { useReminderStore } from '@/stores/reminders'
 import projectService from '@/services/projects'
 import NavBar from '@/components/NavBar.vue'
 
@@ -70,13 +86,17 @@ export default {
   setup() {
     const auth = useAuthStore()
     const taskStore = useTaskStore()
+    const personalTodoStore = usePersonalTodoStore()
     const shiftStore = useShiftStore()
+    const reminderStore = useReminderStore()
     const projectCount = ref(0)
 
     onMounted(async () => {
       await Promise.all([
         taskStore.fetchTasks(),
+        personalTodoStore.fetchTodos(),
         shiftStore.fetchShifts(),
+        reminderStore.fetchReminders(),
         projectService.list().then((res) => {
           projectCount.value = res.data.length
         }),
@@ -92,7 +112,7 @@ export default {
       })
     }
 
-    return { auth, taskStore, shiftStore, projectCount, formatDate }
+    return { auth, taskStore, personalTodoStore, shiftStore, reminderStore, projectCount, formatDate }
   },
 }
 </script>

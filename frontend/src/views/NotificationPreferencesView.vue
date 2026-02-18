@@ -62,6 +62,17 @@
 
           <div class="pref-row">
             <div class="pref-info">
+              <span class="pref-label">Custom reminders</span>
+              <span class="pref-desc">Get notified for reminders you create.</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" v-model="prefs.custom_reminder" @change="save" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="pref-row">
+            <div class="pref-info">
               <span class="pref-label">Task assigned</span>
               <span class="pref-desc">When a new task is assigned to you.</span>
             </div>

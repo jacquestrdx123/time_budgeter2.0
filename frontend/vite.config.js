@@ -72,6 +72,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/personal-todos': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/shifts': {
         target: 'http://localhost:8000',
         changeOrigin: true,

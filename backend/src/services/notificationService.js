@@ -266,6 +266,7 @@ function isTypeEnabled(prefs, notificationType) {
     task_updated: prefs.task_updated,
     shift_reminder: prefs.shift_reminder,
     project_updated: prefs.project_updated,
+    custom_reminder: prefs.custom_reminder,
   };
   return typeMap[notificationType] ?? true;
 }

@@ -55,7 +55,7 @@ router.put('/preferences/me', async (req, res) => {
     const prefs = await getOrCreatePreferences(req.user.id);
 
     const updates = {};
-    for (const key of ['push_enabled', 'email_enabled', 'task_assigned', 'task_updated', 'shift_reminder', 'project_updated']) {
+    for (const key of ['push_enabled', 'email_enabled', 'task_assigned', 'task_updated', 'shift_reminder', 'project_updated', 'custom_reminder']) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
 
