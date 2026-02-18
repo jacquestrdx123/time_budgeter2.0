@@ -22,7 +22,13 @@ function envBool(key, fallback = false) {
 
 const config = {
   SECRET_KEY: process.env.SECRET_KEY || 'timebudget-dev-secret-change-in-production',
-  DATABASE_URL: process.env.DATABASE_URL || 'sqlite:///./timebudget.db',
+
+  MYSQL_HOST: process.env.MYSQL_HOST || '127.0.0.1',
+  MYSQL_PORT: parseInt(process.env.MYSQL_PORT || '3306', 10),
+  MYSQL_USER: process.env.MYSQL_USER || 'timebudget',
+  MYSQL_PASSWORD: process.env.MYSQL_PASSWORD || '',
+  MYSQL_DATABASE: process.env.MYSQL_DATABASE || 'timebudget',
+
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:8081',
 
   FIREBASE_CREDENTIALS_PATH: process.env.FIREBASE_CREDENTIALS_PATH || 'firebase-service-account.json',
@@ -41,18 +47,5 @@ const config = {
   SCHEDULER_ENABLED: envBool('SCHEDULER_ENABLED', true),
   SCHEDULER_CHECK_INTERVAL_SECONDS: parseInt(process.env.SCHEDULER_CHECK_INTERVAL_SECONDS || '60', 10),
 };
-
-export function getDatabasePath() {
-  const url = config.DATABASE_URL;
-  const match = url.match(/sqlite:\/\/\/(.+)/);
-  if (match) {
-    const dbPath = match[1];
-    if (dbPath.startsWith('./') || dbPath.startsWith('../')) {
-      return join(backendDir, dbPath);
-    }
-    return dbPath;
-  }
-  return join(backendDir, 'timebudget.db');
-}
 
 export default config;
