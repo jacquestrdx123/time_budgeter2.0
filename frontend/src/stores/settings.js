@@ -41,7 +41,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const projectDescription = computed(() => getValue('project_description', 'Project'))
   /** Plural form for menus/dashboards (adds 's') */
   const projectDescriptionPlural = computed(() => {
-    const s = projectDescription.value
+    const s = projectDescription.value ?? ''
     if (!s) return 'Projects'
     if (s.endsWith('s') || s.endsWith('x') || s.endsWith('z') || s.endsWith('ch') || s.endsWith('sh')) return s + 'es'
     if (s.endsWith('y') && s.length > 1 && !/^[aeiou]/i.test(s.slice(-2, -1))) return s.slice(0, -1) + 'ies'

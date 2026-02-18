@@ -585,6 +585,7 @@ export default {
     }
 
     return {
+      settingsStore,
       projects,
       blocks,
       breakTypes,

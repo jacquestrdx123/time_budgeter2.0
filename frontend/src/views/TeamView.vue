@@ -428,6 +428,7 @@ export default {
 
     return {
       auth,
+      settingsStore,
       viewMode,
       selectedDate,
       users,
