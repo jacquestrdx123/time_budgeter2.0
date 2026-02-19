@@ -10,6 +10,23 @@ function toMySQLDateTime(value) {
   return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
+/** Map clock_session row to shift-like shape for frontend (start_time, end_time, project_id) */
+function clockSessionToShiftLike(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    tenant_id: row.tenant_id,
+    project_id: row.project_id,
+    shift_id: row.shift_id,
+    start_time: row.clocked_in_at,
+    end_time: row.clocked_out_at,
+    clocked_in_at: row.clocked_in_at,
+    clocked_out_at: row.clocked_out_at,
+    created_at: row.created_at,
+  };
+}
+
 const router = Router();
 router.use(authenticate);
 
@@ -43,14 +60,14 @@ router.get('/', async (req, res) => {
 router.get('/active/:userId', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const shift = await db('shifts')
+    const session = await db('clock_sessions')
       .where({ user_id: req.params.userId, tenant_id: tenantId })
-      .whereNull('end_time')
-      .orderBy('start_time', 'desc')
+      .whereNull('clocked_out_at')
+      .orderBy('clocked_in_at', 'desc')
       .first();
-    res.json(shift || null);
+    res.json(clockSessionToShiftLike(session));
   } catch (err) {
-    console.error('Get active shift error:', err);
+    console.error('Get active clock session error:', err);
     res.status(500).json({ detail: 'Internal server error' });
   }
 });
@@ -107,7 +124,7 @@ router.post('/', async (req, res) => {
 router.post('/clock-in', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const { user_id, project_id } = req.body;
+    const { user_id, project_id, shift_id } = req.body;
     if (!user_id || !project_id) {
       return res.status(422).json({ detail: 'user_id and project_id are required' });
     }
@@ -116,24 +133,31 @@ router.post('/clock-in', async (req, res) => {
     const project = await db('projects').where({ id: project_id, tenant_id: tenantId }).first();
     if (!project) return res.status(404).json({ detail: 'Project not found' });
 
-    const existing = await db('shifts')
+    const existing = await db('clock_sessions')
       .where({ user_id, tenant_id: tenantId })
-      .whereNull('end_time')
+      .whereNull('clocked_out_at')
       .first();
     if (existing) {
       return res.status(409).json({ detail: 'Already clocked in. Please clock out first.' });
     }
 
-    const [id] = await db('shifts').insert({
+    let shiftIdRef = null;
+    if (shift_id) {
+      const shift = await db('shifts').where({ id: shift_id, tenant_id: tenantId }).first();
+      if (shift) shiftIdRef = shift_id;
+    }
+
+    const [id] = await db('clock_sessions').insert({
       tenant_id: tenantId,
-      start_time: db.raw('NOW()'),
-      end_time: null,
       user_id,
+      shift_id: shiftIdRef,
       project_id,
+      clocked_in_at: db.raw('NOW()'),
+      clocked_out_at: null,
     });
 
-    const shift = await db('shifts').where({ id }).first();
-    res.json(shift);
+    const session = await db('clock_sessions').where({ id }).first();
+    res.json(clockSessionToShiftLike(session));
   } catch (err) {
     console.error('Clock-in error:', err);
     res.status(500).json({ detail: 'Internal server error' });
@@ -148,18 +172,18 @@ router.post('/clock-out', async (req, res) => {
       return res.status(422).json({ detail: 'user_id is required' });
     }
 
-    const active = await db('shifts')
+    const active = await db('clock_sessions')
       .where({ user_id, tenant_id: tenantId })
-      .whereNull('end_time')
+      .whereNull('clocked_out_at')
       .first();
     if (!active) {
-      return res.status(404).json({ detail: 'No active shift to clock out from.' });
+      return res.status(404).json({ detail: 'No active clock session to clock out from.' });
     }
 
-    await db('shifts').where({ id: active.id }).update({ end_time: db.raw('NOW()') });
+    await db('clock_sessions').where({ id: active.id }).update({ clocked_out_at: db.raw('NOW()') });
 
-    const shift = await db('shifts').where({ id: active.id }).first();
-    res.json(shift);
+    const session = await db('clock_sessions').where({ id: active.id }).first();
+    res.json(clockSessionToShiftLike(session));
   } catch (err) {
     console.error('Clock-out error:', err);
     res.status(500).json({ detail: 'Internal server error' });

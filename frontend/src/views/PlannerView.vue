@@ -85,10 +85,10 @@
             <div class="summary-actions">
               <button
                 class="btn-save"
-                :disabled="blocks.length === 0 || saving"
+                :disabled="saving"
                 @click="saveAll"
               >
-                {{ saving ? 'Saving...' : 'Save Shifts' }}
+                {{ saving ? 'Saving...' : (blocks.length === 0 ? 'Clear Shifts' : 'Save Shifts') }}
               </button>
             </div>
           </div>
@@ -537,20 +537,31 @@ export default {
     })
 
     async function saveAll() {
-      if (blocks.value.length === 0) return
+      if (!selectedUserId.value) return
       saving.value = true
       const base = new Date(selectedDate.value)
       base.setHours(dayStartHour.value, 0, 0, 0)
+      const dateStr = formatDateParam(selectedDate.value)
 
-      const existingBlocks = blocks.value.filter(b => b.shiftId)
-      for (const block of existingBlocks) {
-        try {
-          await shiftService.remove(block.shiftId)
-        } catch { /* ignore */ }
+      // Delete all existing shifts for this user/date so removals are persisted
+      let deleteOk = true
+      try {
+        const existingShifts = await shiftService.list({
+          user_id: selectedUserId.value,
+          date: dateStr,
+        })
+        for (const shift of existingShifts) {
+          try {
+            await shiftService.remove(shift.id)
+          } catch {
+            deleteOk = false
+          }
+        }
+      } catch {
+        deleteOk = false
       }
 
-      let allOk = true
-
+      let createOk = true
       for (const block of blocks.value) {
         const offsetMs = (block.startSlot * 0.5) * 3600000
         const start = new Date(base.getTime() + offsetMs)
@@ -571,13 +582,17 @@ export default {
           }
           await shiftService.create(shiftData)
         } catch {
-          allOk = false
+          createOk = false
         }
       }
 
       saving.value = false
-      if (allOk) {
-        toast.success(`${blocks.value.length} shift(s) saved for ${selectedUserName.value}!`)
+      if (deleteOk && createOk) {
+        toast.success(
+          blocks.value.length === 0
+            ? `Shifts cleared for ${selectedUserName.value}`
+            : `${blocks.value.length} shift(s) saved for ${selectedUserName.value}!`
+        )
         await loadExistingShifts()
       } else {
         toast.error('Some shifts failed to save')

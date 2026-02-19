@@ -39,4 +39,9 @@ export const shiftService = {
     const response = await api.post('/shifts/clock-out', data)
     return response.data
   },
+
+  async listClockSessions(params = {}) {
+    const response = await api.get('/clock-sessions/', { params })
+    return response.data
+  },
 }

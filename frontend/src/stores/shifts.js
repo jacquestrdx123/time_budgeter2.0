@@ -6,6 +6,7 @@ import { useToastStore } from '@/stores/toast'
 
 export const useShiftStore = defineStore('shifts', () => {
   const shifts = ref([])
+  const clockSessions = ref([])
   const projects = ref([])
   const loading = ref(false)
   const saving = ref(false)
@@ -93,6 +94,19 @@ export const useShiftStore = defineStore('shifts', () => {
     }
   }
 
+  async function fetchClockSessions(params = {}) {
+    loading.value = true
+    try {
+      clockSessions.value = await shiftService.listClockSessions(params)
+    } catch (err) {
+      const toast = useToastStore()
+      toast.error(err.response?.data?.detail || 'Failed to load clock sessions')
+      clockSessions.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchActiveShift(userId) {
     try {
       activeShift.value = await shiftService.getActive(userId)
@@ -101,15 +115,17 @@ export const useShiftStore = defineStore('shifts', () => {
     }
   }
 
-  async function clockIn(userId, projectId) {
+  async function clockIn(userId, projectId, shiftId = null) {
     const toast = useToastStore()
     clockLoading.value = true
     try {
-      const shift = await shiftService.clockIn({ user_id: userId, project_id: projectId })
-      activeShift.value = shift
-      shifts.value.unshift(shift)
+      const payload = { user_id: userId, project_id: projectId }
+      if (shiftId) payload.shift_id = shiftId
+      const session = await shiftService.clockIn(payload)
+      activeShift.value = session
+      clockSessions.value = [session, ...clockSessions.value]
       toast.success('Clocked in successfully')
-      return shift
+      return session
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to clock in')
       return null
@@ -122,12 +138,12 @@ export const useShiftStore = defineStore('shifts', () => {
     const toast = useToastStore()
     clockLoading.value = true
     try {
-      const shift = await shiftService.clockOut({ user_id: userId })
-      const idx = shifts.value.findIndex((s) => s.id === shift.id)
-      if (idx !== -1) shifts.value[idx] = shift
+      const session = await shiftService.clockOut({ user_id: userId })
+      const idx = clockSessions.value.findIndex((s) => s.id === session.id)
+      if (idx !== -1) clockSessions.value[idx] = session
       activeShift.value = null
       toast.success('Clocked out successfully')
-      return shift
+      return session
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to clock out')
       return null
@@ -138,6 +154,7 @@ export const useShiftStore = defineStore('shifts', () => {
 
   return {
     shifts,
+    clockSessions,
     projects,
     loading,
     saving,
@@ -146,6 +163,7 @@ export const useShiftStore = defineStore('shifts', () => {
     shiftCount,
     isClockedIn,
     fetchShifts,
+    fetchClockSessions,
     fetchProjects,
     getShift,
     createShift,

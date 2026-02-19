@@ -61,13 +61,13 @@
 
       <div v-if="shiftStore.loading" class="loading-state">
         <span class="spinner"></span>
-        Loading shifts...
+        Loading clock sessions...
       </div>
 
-      <div v-else-if="shiftStore.shifts.length === 0" class="empty-state">
+      <div v-else-if="shiftStore.clockSessions.length === 0" class="empty-state">
         <div class="empty-icon">&#9201;</div>
-        <h3>No shifts yet</h3>
-        <p>Log your first shift to start tracking time.</p>
+        <h3>No clock sessions yet</h3>
+        <p>Clock in to start tracking time.</p>
         <router-link to="/shifts/create" class="btn-primary">+ New Shift</router-link>
       </div>
 
@@ -75,68 +75,39 @@
         <table class="shift-table">
           <thead>
             <tr>
-              <th>{{ settingsStore.projectDescription }} / Type</th>
+              <th>{{ settingsStore.projectDescription }}</th>
               <th>Start</th>
               <th>End</th>
               <th>Duration</th>
-              <th>Created</th>
-              <th class="th-actions">Actions</th>
+              <th>Planned</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="shift in shiftStore.shifts" :key="shift.id" :class="{ 'row-active': !shift.end_time, 'row-break': shift.is_break }">
+            <tr v-for="session in shiftStore.clockSessions" :key="session.id" :class="{ 'row-active': !session.end_time }">
               <td>
-                <span v-if="shift.is_break" class="break-badge">
-                  <span class="break-icon">&#9749;</span>
-                  {{ shift.break_type || 'Break' }}
-                </span>
-                <router-link v-else :to="`/projects/${shift.project_id}`" class="project-link">
-                  {{ projectName(shift.project_id) }}
+                <router-link v-if="session.project_id" :to="`/projects/${session.project_id}`" class="project-link">
+                  {{ projectName(session.project_id) }}
                 </router-link>
+                <span v-else class="text-muted">—</span>
               </td>
-              <td class="td-datetime">{{ formatDateTime(shift.start_time) }}</td>
+              <td class="td-datetime">{{ formatDateTime(session.start_time) }}</td>
               <td class="td-datetime">
-                <span v-if="shift.end_time">{{ formatDateTime(shift.end_time) }}</span>
+                <span v-if="session.end_time">{{ formatDateTime(session.end_time) }}</span>
                 <span v-else class="in-progress-badge">In Progress</span>
               </td>
               <td>
-                <span v-if="shift.end_time" class="duration-badge">{{ formatDuration(shift.start_time, shift.end_time) }}</span>
-                <span v-else class="duration-badge duration-badge--live">{{ formatLiveDuration(shift.start_time) }}</span>
+                <span v-if="session.end_time" class="duration-badge">{{ formatDuration(session.start_time, session.end_time) }}</span>
+                <span v-else class="duration-badge duration-badge--live">{{ formatLiveDuration(session.start_time) }}</span>
               </td>
-              <td class="td-date">{{ formatDate(shift.created_at) }}</td>
-              <td class="td-actions">
-                <router-link :to="`/shifts/${shift.id}/edit`" class="btn-icon" title="Edit">
-                  &#9998;
-                </router-link>
-                <button
-                  class="btn-icon btn-danger"
-                  title="Delete"
-                  @click="confirmDelete(shift)"
-                >
-                  &#128465;
-                </button>
+              <td>
+                <router-link v-if="session.shift_id" :to="`/shifts/${session.shift_id}/edit`" class="project-link">Shift #{{ session.shift_id }}</router-link>
+                <span v-else class="text-muted">—</span>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </main>
-
-    <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
-      <div class="modal-card">
-        <h3>Delete {{ deleteTarget?.is_break ? 'Break' : 'Shift' }}</h3>
-        <p>
-          Are you sure you want to delete the
-          <strong>{{ deleteTarget?.is_break ? (deleteTarget?.break_type || 'Break') : projectName(deleteTarget?.project_id) }}</strong>
-          {{ deleteTarget?.is_break ? 'break' : 'shift' }}
-          ({{ formatDateTime(deleteTarget?.start_time) }})? This action cannot be undone.
-        </p>
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showDeleteModal = false">Cancel</button>
-          <button class="btn-danger-solid" @click="handleDelete">Delete</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -154,15 +125,13 @@ export default {
     const shiftStore = useShiftStore()
     const authStore = useAuthStore()
     const settingsStore = useSettingsStore()
-    const showDeleteModal = ref(false)
-    const deleteTarget = ref(null)
     const clockInProjectId = ref('')
     const now = ref(new Date())
     let ticker = null
 
     onMounted(async () => {
       await Promise.all([
-        shiftStore.fetchShifts(),
+        shiftStore.fetchClockSessions(),
         shiftStore.fetchProjects(),
         authStore.user?.id ? shiftStore.fetchActiveShift(authStore.user.id) : Promise.resolve(),
       ])
@@ -239,23 +208,9 @@ export default {
       await shiftStore.clockOut(authStore.user.id)
     }
 
-    function confirmDelete(shift) {
-      deleteTarget.value = shift
-      showDeleteModal.value = true
-    }
-
-    async function handleDelete() {
-      if (!deleteTarget.value) return
-      await shiftStore.deleteShift(deleteTarget.value.id)
-      showDeleteModal.value = false
-      deleteTarget.value = null
-    }
-
     return {
       shiftStore,
       settingsStore,
-      showDeleteModal,
-      deleteTarget,
       clockInProjectId,
       elapsedTime,
       now,
@@ -264,8 +219,6 @@ export default {
       formatDate,
       formatDuration,
       formatLiveDuration,
-      confirmDelete,
-      handleDelete,
       handleClockIn,
       handleClockOut,
     }
@@ -622,6 +575,11 @@ export default {
 .td-date {
   color: #94a3b8;
   font-size: 0.85rem;
+}
+
+.text-muted {
+  color: #64748b;
+  font-size: 0.9rem;
 }
 
 .td-actions {
