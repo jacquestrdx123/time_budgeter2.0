@@ -2,6 +2,14 @@ import { Router } from 'express';
 import db from '../database.js';
 import { authenticate } from '../auth.js';
 
+/** Convert ISO string or Date to MySQL DATETIME format (YYYY-MM-DD HH:mm:ss) */
+function toMySQLDateTime(value) {
+  if (value == null) return null;
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 const router = Router();
 router.use(authenticate);
 
@@ -80,8 +88,8 @@ router.post('/', async (req, res) => {
 
     const [id] = await db('shifts').insert({
       tenant_id: tenantId,
-      start_time,
-      end_time: end_time || null,
+      start_time: toMySQLDateTime(start_time),
+      end_time: toMySQLDateTime(end_time) || null,
       user_id,
       project_id: isBreakShift ? (project_id || null) : project_id,
       is_break: isBreakShift ? 1 : 0,
@@ -168,6 +176,8 @@ router.patch('/:shiftId', async (req, res) => {
     for (const key of ['start_time', 'end_time', 'user_id', 'project_id', 'is_break', 'break_type']) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    if (updates.start_time !== undefined) updates.start_time = toMySQLDateTime(updates.start_time);
+    if (updates.end_time !== undefined) updates.end_time = toMySQLDateTime(updates.end_time);
     if (updates.is_break !== undefined) {
       updates.is_break = (updates.is_break === true || updates.is_break === 1) ? 1 : 0;
       if (updates.is_break === 0) updates.break_type = null;
