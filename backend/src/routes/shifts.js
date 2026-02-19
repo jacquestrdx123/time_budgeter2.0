@@ -5,6 +5,33 @@ import { authenticate } from '../auth.js';
 const router = Router();
 router.use(authenticate);
 
+const MYSQL_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function toMySQLDateTime(date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function normalizeDateParam(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return DATE_RE.test(trimmed) ? trimmed : null;
+}
+
+function normalizeDateTime(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (MYSQL_DATETIME_RE.test(trimmed)) return trimmed;
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return toMySQLDateTime(parsed);
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toMySQLDateTime(parsed);
+}
+
 router.get('/', async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
@@ -15,12 +42,21 @@ router.get('/', async (req, res) => {
     }
 
     if (req.query.date) {
-      const dayStart = `${req.query.date}T00:00:00.000`;
-      const dayEnd = `${req.query.date}T23:59:59.999`;
+      const day = normalizeDateParam(req.query.date);
+      if (!day) {
+        return res.status(422).json({ detail: 'date must be in YYYY-MM-DD format' });
+      }
+      const dayStart = `${day} 00:00:00`;
+      const dayEnd = `${day} 23:59:59`;
       query = query.where('start_time', '>=', dayStart).where('start_time', '<=', dayEnd);
     } else if (req.query.date_from && req.query.date_to) {
-      const rangeStart = `${req.query.date_from}T00:00:00.000`;
-      const rangeEnd = `${req.query.date_to}T23:59:59.999`;
+      const rangeDateFrom = normalizeDateParam(req.query.date_from);
+      const rangeDateTo = normalizeDateParam(req.query.date_to);
+      if (!rangeDateFrom || !rangeDateTo) {
+        return res.status(422).json({ detail: 'date_from and date_to must be in YYYY-MM-DD format' });
+      }
+      const rangeStart = `${rangeDateFrom} 00:00:00`;
+      const rangeEnd = `${rangeDateTo} 23:59:59`;
       query = query.where('start_time', '>=', rangeStart).where('start_time', '<=', rangeEnd);
     }
 
@@ -64,9 +100,17 @@ router.post('/', async (req, res) => {
     const tenantId = req.user.tenant_id;
     const { start_time, end_time, user_id, project_id, is_break, break_type } = req.body;
     const isBreakShift = is_break === true || is_break === 1;
+    const normalizedStartTime = normalizeDateTime(start_time);
+    const normalizedEndTime = normalizeDateTime(end_time);
 
     if (!start_time || !user_id) {
       return res.status(422).json({ detail: 'start_time and user_id are required' });
+    }
+    if (!normalizedStartTime) {
+      return res.status(422).json({ detail: 'start_time must be a valid datetime' });
+    }
+    if (end_time !== undefined && end_time !== null && end_time !== '' && !normalizedEndTime) {
+      return res.status(422).json({ detail: 'end_time must be a valid datetime' });
     }
     if (!isBreakShift && !project_id) {
       return res.status(422).json({ detail: 'project_id is required for non-break shifts' });
@@ -80,8 +124,8 @@ router.post('/', async (req, res) => {
 
     const [id] = await db('shifts').insert({
       tenant_id: tenantId,
-      start_time,
-      end_time: end_time || null,
+      start_time: normalizedStartTime,
+      end_time: normalizedEndTime,
       user_id,
       project_id: isBreakShift ? (project_id || null) : project_id,
       is_break: isBreakShift ? 1 : 0,
@@ -167,6 +211,20 @@ router.patch('/:shiftId', async (req, res) => {
     const updates = {};
     for (const key of ['start_time', 'end_time', 'user_id', 'project_id', 'is_break', 'break_type']) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (updates.start_time !== undefined) {
+      const normalizedStartTime = normalizeDateTime(updates.start_time);
+      if (!normalizedStartTime) {
+        return res.status(422).json({ detail: 'start_time must be a valid datetime' });
+      }
+      updates.start_time = normalizedStartTime;
+    }
+    if (updates.end_time !== undefined) {
+      const normalizedEndTime = normalizeDateTime(updates.end_time);
+      if (updates.end_time !== null && updates.end_time !== '' && !normalizedEndTime) {
+        return res.status(422).json({ detail: 'end_time must be a valid datetime' });
+      }
+      updates.end_time = normalizedEndTime;
     }
     if (updates.is_break !== undefined) {
       updates.is_break = (updates.is_break === true || updates.is_break === 1) ? 1 : 0;
